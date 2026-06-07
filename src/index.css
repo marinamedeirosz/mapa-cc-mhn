@@ -1,0 +1,107 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "leaflet/dist/leaflet.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --radius: 0.5rem;
+  --background: oklch(0.99 0.004 106);
+  --foreground: oklch(0.18 0.014 235);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.42 0.104 177);
+  --primary-foreground: oklch(0.99 0.004 106);
+  --secondary: oklch(0.96 0.016 235);
+  --secondary-foreground: oklch(0.27 0.02 235);
+  --muted: oklch(0.95 0.012 106);
+  --muted-foreground: oklch(0.48 0.025 235);
+  --accent: oklch(0.91 0.045 92);
+  --accent-foreground: oklch(0.25 0.032 92);
+  --destructive: oklch(0.57 0.19 27);
+  --border: oklch(0.89 0.014 235);
+  --input: oklch(0.89 0.014 235);
+  --ring: oklch(0.58 0.12 177);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--background);
+  color: var(--foreground);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  background: oklch(0.94 0.02 217);
+  font: inherit;
+}
+
+.occurrence-marker {
+  align-items: center;
+  background: oklch(0.42 0.104 177);
+  border: 2px solid white;
+  border-radius: 999px;
+  box-shadow: 0 2px 10px oklch(0.18 0.014 235 / 0.25);
+  display: flex;
+  height: 18px;
+  justify-content: center;
+  width: 18px;
+}
+
+.occurrence-marker.local-fallback {
+  background: oklch(0.66 0.14 70);
+}
