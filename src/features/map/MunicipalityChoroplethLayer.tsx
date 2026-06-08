@@ -2,6 +2,7 @@ import L from 'leaflet'
 import { useEffect, useMemo, useState } from 'react'
 import { GeoJSON, Marker, Polyline, useMap } from 'react-leaflet'
 import {
+  formatMunicipalityLabel,
   getMunicipalityFeatureId,
   selectMunicipalityLabels,
 } from '@/lib/municipalityMapExport'
@@ -155,7 +156,7 @@ function municipalityLabelIcon(
 ) {
   return L.divIcon({
     className: `municipality-label-marker ${placement === 'inside' ? 'inside' : 'callout'}`,
-    html: `<span>${escapeHtml(name)} <strong>${total}</strong></span>`,
+    html: `<span>${escapeHtml(formatMunicipalityLabel(name, total))}</span>`,
     iconSize: [width, 24],
     iconAnchor: [width / 2, 12],
   })

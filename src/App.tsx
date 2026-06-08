@@ -3,6 +3,15 @@ import { useMemo, useReducer } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FiltersPanel } from '@/features/filters/FiltersPanel'
 import { ImportPanel } from '@/features/import/ImportPanel'
 import { OccurrenceMap } from '@/features/map/OccurrenceMap'
@@ -15,7 +24,7 @@ import {
   initialFilters,
 } from '@/lib/filtering'
 import { buildStats } from '@/lib/stats'
-import type { Filters, ImportResult, ImportSummary, MapMode, OccurrenceRecord } from '@/types'
+import type { Filters, ImportIssue, ImportResult, ImportSummary, MapMode, OccurrenceRecord } from '@/types'
 
 interface AppState {
   records: OccurrenceRecord[]
@@ -127,17 +136,7 @@ function App() {
         <section className="grid min-w-0 gap-4">
           {state.records.length === 0 ? <EmptyState /> : null}
 
-          {state.summary?.issues.length ? (
-            <Alert className="border-accent bg-accent/30">
-              <AlertTriangle className="absolute left-3 top-3 size-4" />
-              <div className="pl-6">
-                <AlertTitle>{state.summary.issues.length} aviso(s) na importação</AlertTitle>
-                <AlertDescription>
-                  Registros sem posição seguem na tabela e nas estatísticas; apenas ficam fora do mapa.
-                </AlertDescription>
-              </div>
-            </Alert>
-          ) : null}
+          {state.summary?.issues.length ? <ImportIssuesDialog issues={state.summary.issues} /> : null}
 
           <OccurrenceMap
             records={filteredRecords}
@@ -171,6 +170,71 @@ function EmptyState() {
       </CardContent>
     </Card>
   )
+}
+
+function ImportIssuesDialog({ issues }: { issues: ImportIssue[] }) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Alert
+          asChild
+          className="border-accent bg-accent/30 text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
+          <button type="button" aria-label="Ver avisos da importação">
+            <AlertTriangle className="absolute left-3 top-3 size-4" />
+            <div className="pl-6">
+              <AlertTitle>{issues.length} aviso(s) na importação</AlertTitle>
+              <AlertDescription>
+                Registros sem posição seguem na tabela e nas estatísticas; apenas ficam fora do mapa.
+              </AlertDescription>
+            </div>
+          </button>
+        </Alert>
+      </DialogTrigger>
+
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Problemas encontrados na importação</DialogTitle>
+          <DialogDescription>
+            Confira as linhas da planilha que geraram avisos ou erros durante a importação.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="max-h-[65svh] overflow-auto rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-20">Linha</TableHead>
+                <TableHead className="w-32">Código</TableHead>
+                <TableHead className="w-36">Campo</TableHead>
+                <TableHead className="w-28">Tipo</TableHead>
+                <TableHead>Mensagem</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {issues.map((issue, index) => (
+                <TableRow key={`${issue.rowNumber}-${issue.field ?? 'campo'}-${index}`}>
+                  <TableCell>{issue.rowNumber}</TableCell>
+                  <TableCell>{issue.code || '-'}</TableCell>
+                  <TableCell>{issue.field || '-'}</TableCell>
+                  <TableCell>
+                    <Badge variant={issue.severity === 'error' ? 'destructive' : 'warning'}>
+                      {formatIssueSeverity(issue.severity)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="min-w-80">{issue.message}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function formatIssueSeverity(severity: ImportIssue['severity']) {
+  return severity === 'error' ? 'Erro' : 'Aviso'
 }
 
 export default App

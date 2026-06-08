@@ -14,6 +14,7 @@ export interface MunicipalityLabel {
   id: string
   name: string
   total: number
+  projectedArea: number
   latitude: number
   longitude: number
   anchorX: number
@@ -46,14 +47,17 @@ interface ReportSvgOptions {
   height?: number
 }
 
-const reportWidth = 1200
-const reportHeight = 1120
-const mapWidth = 1080
-const mapHeight = 690
-const mapX = 60
-const mapY = 235
-const mapPadding = 34
-const reportCalloutPadding = 18
+const reportWidth = 1600
+const reportHeight = 900
+const mapWidth = 1540
+const mapHeight = 840
+const mapX = 30
+const mapY = 30
+const mapPadding = 18
+const reportCalloutPadding = 12
+const smallMunicipalityAreaThreshold = 1800
+const calloutColumnWidth = 240
+const calloutColumnGap = 24
 
 export function getMunicipalityMapFileName(date = new Date()): string {
   const year = date.getFullYear()
@@ -61,6 +65,10 @@ export function getMunicipalityMapFileName(date = new Date()): string {
   const day = String(date.getDate()).padStart(2, '0')
 
   return `mapa-municipios-alagoas-${year}-${month}-${day}.png`
+}
+
+export function formatMunicipalityLabel(name: string, total: number): string {
+  return `${name} (${total})`
 }
 
 export function layoutMunicipalityLabels({
@@ -84,13 +92,15 @@ export function layoutMunicipalityLabels({
 
       const center = getMunicipalityCenter(feature)
       const point = project(center)
-      const width = estimateLabelWidth(count.name)
+      const width = estimateLabelWidth(formatMunicipalityLabel(count.name, count.total))
       const height = 22
+      const projectedArea = getProjectedFeatureArea(feature, project)
 
       const label: MunicipalityLabel = {
         id,
         name: count.name,
         total: count.total,
+        projectedArea,
         latitude: center.latitude,
         longitude: center.longitude,
         anchorX: point.x,
@@ -114,8 +124,8 @@ export function layoutMunicipalityLabels({
   const selected: MunicipalityLabel[] = []
   const layoutBounds = bounds ?? inferLabelBounds(candidates)
   const insideBounds = {
-    left: layoutBounds.left + 150,
-    right: layoutBounds.right - 150,
+    left: layoutBounds.left + calloutColumnWidth + calloutColumnGap,
+    right: layoutBounds.right - calloutColumnWidth - calloutColumnGap,
     top: layoutBounds.top,
     bottom: layoutBounds.bottom,
   }
@@ -128,7 +138,7 @@ export function layoutMunicipalityLabels({
     const box = labelBox(label)
     const collides = occupied.some((existing) => boxesCollide(existing, box))
 
-    if (!collides && boxFits(box, insideBounds)) {
+    if (!isSmallMunicipalityLabel(label) && !collides && boxFits(box, insideBounds)) {
       selected.push(label)
       occupied.push(box)
     } else {
@@ -148,7 +158,7 @@ export function buildMunicipalityReportSvg({
   width = reportWidth,
   height = reportHeight,
 }: ReportSvgOptions): string {
-  const projection = createSvgProjection(geojson, mapX + 120, mapY, mapWidth - 240, mapHeight, mapPadding)
+  const projection = createSvgProjection(geojson, mapX + 110, mapY, mapWidth - 220, mapHeight, mapPadding)
   const labels = showLabels
     ? layoutMunicipalityLabels({
         geojson,
@@ -157,49 +167,20 @@ export function buildMunicipalityReportSvg({
         bounds: {
           left: mapX + reportCalloutPadding,
           right: mapX + mapWidth - reportCalloutPadding,
-          top: mapY + 18,
-          bottom: mapY + mapHeight - 18,
+          top: mapY + 12,
+          bottom: mapY + mapHeight - 12,
         },
         balanceCallouts: true,
       })
     : []
-  const municipalityRows = Array.from(aggregation.counts.values()).sort(
-    (a, b) => b.total - a.total || a.name.localeCompare(b.name, 'pt-BR'),
-  )
-  const topMunicipalities = municipalityRows.slice(0, 5)
-  const generatedAt = new Intl.DateTimeFormat('pt-BR').format(new Date())
-
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="100%" height="100%" fill="#f8faf8"/>
-  <text x="60" y="72" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700" fill="#172021">Mapa municipal de Alagoas</text>
-  <text x="60" y="108" font-family="Inter, Arial, sans-serif" font-size="16" fill="#596667">Registros filtrados no momento da exportacao - ${escapeXml(generatedAt)}</text>
-  ${metricCard(60, 130, 'No mapa', `${aggregation.recordsWithMunicipality}/${aggregation.totalRecords}`)}
-  ${metricCard(255, 130, 'Municipios', String(aggregation.municipalitiesWithRecords))}
-  ${metricCard(450, 130, 'Sem municipio', String(aggregation.unresolved))}
-  ${metricCard(645, 130, 'Atribuições', String(aggregation.totalMunicipalized))}
   <rect x="${mapX}" y="${mapY}" width="${mapWidth}" height="${mapHeight}" rx="10" fill="#dcecef" stroke="#c6d6d8"/>
   <g>
     ${geojson.features.map((feature) => featureToSvg(feature, aggregation, projection)).join('\n    ')}
   </g>
   ${labels.map(labelToSvg).join('\n  ')}
-  <g transform="translate(60 960)">
-    <text x="0" y="0" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700" fill="#172021">Maior intensidade = maior quantidade de atribuicoes municipais</text>
-    ${legendSwatch(0, 18, '#f4f1e8', '0')}
-    ${legendSwatch(84, 18, getMunicipalityColor(1, 4), 'baixo')}
-    ${legendSwatch(190, 18, getMunicipalityColor(2, 4), 'medio')}
-    ${legendSwatch(300, 18, getMunicipalityColor(3, 4), 'alto')}
-    ${legendSwatch(398, 18, getMunicipalityColor(4, 4), 'maximo')}
-  </g>
-  <g transform="translate(700 952)">
-    <text x="0" y="0" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700" fill="#172021">Top municipios</text>
-    ${topMunicipalities
-      .map(
-        (item, index) =>
-          `<text x="0" y="${24 + index * 22}" font-family="Inter, Arial, sans-serif" font-size="13" fill="#374345">${escapeXml(item.name)}: ${item.total}</text>`,
-      )
-      .join('\n    ')}
-  </g>
 </svg>`
 }
 
@@ -268,6 +249,26 @@ function featureToPath(feature: MunicipalityFeature, projection: SvgProjection):
         .join(' '),
     )
     .join(' ')
+}
+
+function getProjectedFeatureArea(
+  feature: MunicipalityFeature,
+  project: (position: { latitude: number; longitude: number }) => ProjectedPoint,
+): number {
+  return getPolygons(feature).reduce((featureArea, polygon) => {
+    const [outerRing] = polygon
+
+    if (!outerRing) {
+      return featureArea
+    }
+
+    const projectedRing = outerRing.map(([longitude, latitude]) => {
+      const point = project({ latitude, longitude })
+      return [point.x, point.y] as Coordinate
+    })
+
+    return featureArea + Math.abs(ringArea(projectedRing))
+  }, 0)
 }
 
 function getMunicipalityCenter(feature: MunicipalityFeature): { latitude: number; longitude: number } {
@@ -393,6 +394,10 @@ function labelBox(label: MunicipalityLabel): LabelBox {
   }
 }
 
+function isSmallMunicipalityLabel(label: MunicipalityLabel): boolean {
+  return label.projectedArea < smallMunicipalityAreaThreshold
+}
+
 function boxesCollide(a: LabelBox, b: LabelBox): boolean {
   return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom)
 }
@@ -407,6 +412,7 @@ function boxFits(box: LabelBox, bounds: LabelLayoutBounds): boolean {
 }
 
 function labelToSvg(label: MunicipalityLabel): string {
+  const text = formatMunicipalityLabel(label.name, label.total)
   const line =
     label.lineStart && label.lineEnd
       ? `<polyline points="${label.lineStart.x.toFixed(1)},${label.lineStart.y.toFixed(1)} ${label.lineEnd.x.toFixed(1)},${label.lineEnd.y.toFixed(1)}" fill="none" stroke="#4b5d5c" stroke-width="1.2" stroke-dasharray="4 4" stroke-linecap="round"/>`
@@ -415,7 +421,7 @@ function labelToSvg(label: MunicipalityLabel): string {
   return `${line}
   <g transform="translate(${label.labelX.toFixed(1)} ${label.labelY.toFixed(1)})">
     <rect x="${(-label.width / 2).toFixed(1)}" y="-12" width="${label.width}" height="24" rx="12" fill="#ffffff" fill-opacity="0.88" stroke="#c6d6d8"/>
-    <text x="0" y="4" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700" fill="#172021">${escapeXml(label.name)} ${label.total}</text>
+    <text x="0" y="4" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700" fill="#172021">${escapeXml(text)}</text>
   </g>`
 }
 
@@ -504,7 +510,7 @@ function sideCost(side: MunicipalityLabel[], label: MunicipalityLabel, isNatural
     const distance = Math.abs(existing.anchorY - label.anchorY)
     return total + Math.max(0, 90 - distance)
   }, 0)
-  const crossingPenalty = isNaturalSide ? 0 : 45
+  const crossingPenalty = isNaturalSide ? 0 : 260
 
   return densityCost + proximityCost + crossingPenalty
 }
@@ -567,21 +573,6 @@ function withCalloutY(label: MunicipalityLabel, labelY: number): MunicipalityLab
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
-}
-
-function metricCard(x: number, y: number, label: string, value: string): string {
-  return `<g transform="translate(${x} ${y})">
-    <rect width="170" height="76" rx="10" fill="#ffffff" stroke="#d7dee0"/>
-    <text x="16" y="32" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700" fill="#172021">${escapeXml(value)}</text>
-    <text x="16" y="56" font-family="Inter, Arial, sans-serif" font-size="13" fill="#596667">${escapeXml(label)}</text>
-  </g>`
-}
-
-function legendSwatch(x: number, y: number, color: string, label: string): string {
-  return `<g transform="translate(${x} ${y})">
-    <rect width="34" height="14" rx="3" fill="${color}" stroke="#c6d6d8"/>
-    <text x="42" y="12" font-family="Inter, Arial, sans-serif" font-size="12" fill="#596667">${escapeXml(label)}</text>
-  </g>`
 }
 
 function loadImage(url: string): Promise<HTMLImageElement> {

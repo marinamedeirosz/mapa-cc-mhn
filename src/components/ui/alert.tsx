@@ -1,10 +1,20 @@
+import { Slot } from '@radix-ui/react-slot'
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 
-function Alert({ className, ...props }: React.ComponentProps<'div'>) {
+function Alert({
+  className,
+  role,
+  asChild = false,
+  ...props
+}: React.ComponentProps<'div'> & {
+  asChild?: boolean
+}) {
+  const Comp = asChild ? Slot : 'div'
+
   return (
-    <div
-      role="alert"
+    <Comp
+      role={role ?? (asChild ? undefined : 'alert')}
       className={cn('relative w-full rounded-lg border px-4 py-3 text-sm', className)}
       {...props}
     />

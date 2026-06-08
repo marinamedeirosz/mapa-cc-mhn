@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildMunicipalityReportSvg,
+  formatMunicipalityLabel,
   getMunicipalityMapFileName,
   layoutMunicipalityLabels,
   selectMunicipalityLabels,
@@ -24,6 +25,10 @@ describe('municipalityMapExport', () => {
     expect(getMunicipalityMapFileName(new Date(2026, 5, 7))).toBe(
       'mapa-municipios-alagoas-2026-06-07.png',
     )
+  })
+
+  it('formats municipality labels with the total in parentheses', () => {
+    expect(formatMunicipalityLabel('Maceio', 10)).toBe('Maceio (10)')
   })
 
   it('selects every municipality label by default', () => {
@@ -112,7 +117,72 @@ describe('municipalityMapExport', () => {
     expect(calloutSides.has('callout-right')).toBe(true)
   })
 
-  it('renders a report SVG with map metrics and labels', () => {
+  it('keeps nearby callouts on their natural side before balancing columns', () => {
+    const aggregation = aggregationWithCounts([
+      ['a', 'Maceio', 10],
+      ['b', 'Pilar', 8],
+    ])
+    const labels = layoutMunicipalityLabels({
+      geojson,
+      aggregation,
+      balanceCallouts: true,
+      bounds: { left: 0, right: 400, top: 0, bottom: 220 },
+      project: () => ({ x: 95, y: 90 }),
+    })
+
+    expect(labels.map((label) => label.placement)).toEqual(['callout-left', 'callout-left'])
+  })
+
+  it('places very small municipalities outside the map as callouts', () => {
+    const tinyGeojson: MunicipalityFeatureCollection = {
+      type: 'FeatureCollection',
+      features: [municipality('tiny', 'Coqueiro Seco', -36, -10, 0.01)],
+    }
+    const labels = layoutMunicipalityLabels({
+      geojson: tinyGeojson,
+      aggregation: aggregationWithCounts([['tiny', 'Coqueiro Seco', 4]]),
+      bounds: { left: 0, right: 400, top: 0, bottom: 260 },
+      project: ({ latitude, longitude }) => ({
+        x: (longitude + 36.1) * 1000,
+        y: (latitude + 10.1) * 1000,
+      }),
+    })
+
+    expect(labels).toHaveLength(1)
+    expect(labels[0].placement).not.toBe('inside')
+  })
+
+  it('keeps an inner gap between callout labels and inside labels', () => {
+    const mixedGeojson: MunicipalityFeatureCollection = {
+      type: 'FeatureCollection',
+      features: [
+        municipality('tiny', 'Coqueiro Seco', -36, -10, 0.01),
+        municipality('large', 'Maceio', -35.77, -10, 0.1),
+      ],
+    }
+    const labels = layoutMunicipalityLabels({
+      geojson: mixedGeojson,
+      aggregation: aggregationWithCounts([
+        ['tiny', 'Coqueiro Seco', 4],
+        ['large', 'Maceio', 10],
+      ]),
+      bounds: { left: 0, right: 720, top: 0, bottom: 260 },
+      project: ({ latitude, longitude }) => ({
+        x: (longitude + 36.1) * 1000,
+        y: (latitude + 10.1) * 1000,
+      }),
+    })
+    const callout = labels.find((label) => label.id === 'tiny')
+    const inside = labels.find((label) => label.id === 'large')
+
+    expect(callout?.placement).toBe('callout-left')
+    expect(inside?.placement).toBe('inside')
+    expect(callout && inside ? callout.labelX + callout.width / 2 : 0).toBeLessThan(
+      inside ? inside.labelX - inside.width / 2 : 0,
+    )
+  })
+
+  it('renders a map-only export SVG with municipality labels', () => {
     const svg = buildMunicipalityReportSvg({
       geojson,
       aggregation: aggregationWithCounts([
@@ -122,10 +192,11 @@ describe('municipalityMapExport', () => {
       showLabels: true,
     })
 
-    expect(svg).toContain('Mapa municipal de Alagoas')
-    expect(svg).toContain('No mapa')
-    expect(svg).toContain('Maceio')
+    expect(svg).toContain('Maceio (10)')
     expect(svg).toContain('<path')
+    expect(svg).not.toContain('Mapa municipal de Alagoas')
+    expect(svg).not.toContain('No mapa')
+    expect(svg).not.toContain('Top municipios')
   })
 })
 
@@ -163,7 +234,13 @@ function aggregationWithCounts(items: Array<[string, string, number]>): Municipa
   }
 }
 
-function municipality(id: string, name: string, longitude: number, latitude: number) {
+function municipality(
+  id: string,
+  name: string,
+  longitude: number,
+  latitude: number,
+  size = 0.1,
+) {
   return {
     type: 'Feature' as const,
     properties: { id, codarea: id, name },
@@ -172,9 +249,9 @@ function municipality(id: string, name: string, longitude: number, latitude: num
       coordinates: [
         [
           [longitude, latitude],
-          [longitude + 0.1, latitude],
-          [longitude + 0.1, latitude + 0.1],
-          [longitude, latitude + 0.1],
+          [longitude + size, latitude],
+          [longitude + size, latitude + size],
+          [longitude, latitude + size],
           [longitude, latitude],
         ],
       ],

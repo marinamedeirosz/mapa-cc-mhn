@@ -72,7 +72,7 @@ Mostra a concentração de ocorrências que possuem posição geográfica, seja 
 
 Mostra a malha municipal de Alagoas. Cada município recebe uma cor de acordo com a quantidade de registros associados a ele. Quanto maior a contagem, mais intensa é a cor.
 
-Nesse modo, é possível mostrar ou ocultar nomes de municípios, clicar em um município para ver os registros que compõem a contagem e exportar o mapa em PNG. Quando muitos nomes ficarem próximos, o mapa usa etiquetas laterais com linhas tracejadas para conectar a etiqueta ao município correspondente.
+Nesse modo, é possível mostrar ou ocultar nomes de municípios, clicar em um município para ver os registros que compõem a contagem e exportar o mapa em PNG. A exportação gera apenas o mapa municipal, em formato horizontal, com etiquetas no formato `Município (número)` e linhas tracejadas quando for necessário deslocar nomes para fora da malha.
 
 ## Filtros e resultados
 
@@ -80,19 +80,71 @@ Os filtros são recalculados a partir da planilha importada e atualizam automati
 
 A tabela de resultados mantém todos os registros importados, inclusive aqueles que não puderam ser posicionados no mapa. Ela permite busca rápida, ordenação, paginação e exportação dos dados filtrados em CSV.
 
-## Desenvolvimento
+## Como rodar o projeto
 
-Instale as dependências:
+### 1. Instalar os programas necessários
+
+Antes de baixar o projeto, instale:
+
+- **Git**, para clonar o repositório: [git-scm.com/downloads](https://git-scm.com/downloads)
+- **Node.js LTS**, para executar o projeto: [nodejs.org](https://nodejs.org)
+- **pnpm**, para instalar as dependências do projeto.
+
+Depois de instalar o Node.js, abra o terminal e ative o pnpm com:
+
+```bash
+corepack enable
+corepack prepare pnpm@latest --activate
+```
+
+Se o comando `corepack` não estiver disponível, instale o pnpm com:
+
+```bash
+npm install -g pnpm
+```
+
+Para conferir se tudo foi instalado corretamente:
+
+```bash
+git --version
+node --version
+pnpm --version
+```
+
+### 2. Clonar o repositório
+
+No terminal, escolha uma pasta onde deseja salvar o projeto e execute:
+
+```bash
+git clone https://github.com/marinamedeirosz/mapa-cc-mhn.git
+cd mapa-cc-mhn
+```
+
+### 3. Instalar as dependências
+
+Dentro da pasta do projeto, execute:
 
 ```bash
 pnpm install
 ```
 
-Rode o app localmente:
+### 4. Rodar localmente
+
+Depois da instalação, inicie o servidor de desenvolvimento:
 
 ```bash
 pnpm dev
 ```
+
+O terminal exibirá o endereço local da aplicação. Normalmente será:
+
+```bash
+http://localhost:5173
+```
+
+Abra esse endereço no navegador para usar o sistema.
+
+## Desenvolvimento
 
 Comandos de verificação:
 

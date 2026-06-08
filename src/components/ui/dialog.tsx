@@ -7,6 +7,10 @@ function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>)
   return <DialogPrimitive.Root {...props} />
 }
 
+function DialogTrigger({ ...props }: React.ComponentProps<typeof DialogPrimitive.Trigger>) {
+  return <DialogPrimitive.Trigger {...props} />
+}
+
 function DialogContent({
   className,
   children,
@@ -52,4 +56,4 @@ function DialogDescription({
   return <DialogPrimitive.Description className={cn('text-sm text-muted-foreground', className)} {...props} />
 }
 
-export { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle }
+export { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger }

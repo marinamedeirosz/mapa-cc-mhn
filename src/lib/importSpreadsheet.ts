@@ -53,8 +53,16 @@ export async function parseSpreadsheetFile(file: File): Promise<ImportResult> {
     )
   }
 
+  const dataRows = rows
+    .map((row, index) => ({ row, rowNumber: index + 2 }))
+    .filter(({ row }) => rowHasData(row))
+
+  if (dataRows.length === 0) {
+    throw new Error('A planilha não possui registros.')
+  }
+
   const issues: ImportIssue[] = []
-  const records = rows.map((row, index) => normalizeRow(row, index + 2, columnMap, issues))
+  const records = dataRows.map(({ row, rowNumber }) => normalizeRow(row, rowNumber, columnMap, issues))
   const withCoordinates = records.filter((record) => record.positionSource === 'coordinates').length
   const fromLocal = records.filter((record) => record.positionSource === 'local_fallback').length
   const unresolved = records.filter((record) => record.positionSource === 'unresolved').length
@@ -82,6 +90,10 @@ function buildColumnMap(firstRow: RawRow): Record<RequiredColumn, string> {
     acc[column] = normalizedHeaders[column] ?? ''
     return acc
   }, {} as Record<RequiredColumn, string>)
+}
+
+function rowHasData(row: RawRow): boolean {
+  return Object.values(row).some((value) => cellText(value) !== '')
 }
 
 function normalizeRow(
