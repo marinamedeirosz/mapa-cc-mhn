@@ -17,9 +17,15 @@ export function parseDateCell(value: unknown): Date | null {
 
   const brMatch = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/)
   if (brMatch) {
-    const [, day, month, year] = brMatch
+    const [, first, second, year] = brMatch
     const fullYear = Number(year.length === 2 ? `20${year}` : year)
-    return safeDate(fullYear, Number(month), Number(day))
+    const brazilianDate = safeDate(fullYear, Number(second), Number(first))
+
+    if (brazilianDate) {
+      return brazilianDate
+    }
+
+    return safeDate(fullYear, Number(first), Number(second))
   }
 
   const isoMatch = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/)

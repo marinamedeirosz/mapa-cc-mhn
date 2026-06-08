@@ -29,6 +29,17 @@ describe('parseSpreadsheetFile', () => {
 
     await expect(parseSpreadsheetFile(file)).rejects.toThrow('A planilha não possui registros.')
   })
+  it('accepts US date strings and formats them as Brazilian dates', async () => {
+    const file = workbookFile([
+      headers,
+      ['001', '12/31/2026', 'Familia A', 'Especie A', 'Maceio, AL', '', 'Data americana'],
+    ])
+
+    const result = await parseSpreadsheetFile(file)
+
+    expect(result.records[0].dateText).toBe('31/12/2026')
+    expect(result.records[0].importIssues).toHaveLength(0)
+  })
 })
 
 function workbookFile(rows: unknown[][]): File {
