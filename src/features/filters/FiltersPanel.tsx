@@ -76,7 +76,7 @@ export function FiltersPanel({ filters, options, resultCount, onChange, onClear 
             id="observation-filter"
             value={filters.observation}
             onChange={(event) => onChange({ ...filters, observation: event.target.value })}
-            placeholder="Comprado, mercado, Universo Submerso"
+            placeholder="Ponto x"
           />
         </div>
 

@@ -1,343 +1,115 @@
-# Atualizações para o README
+# Mapa CC MNH
 
-## Estrutura da Planilha
+Facilitador para visualização da representatividade espacial de coleções carcinológicas.
 
-A planilha deverá conter as seguintes colunas:
+O **Mapa CC MNH** ajuda a transformar registros de uma coleção carcinológica em uma leitura espacial clara. A partir de uma planilha, o sistema organiza os dados, posiciona as ocorrências no mapa e permite observar onde a coleção está mais ou menos representada.
 
-| Coluna      |
-| ----------- |
-| Código      |
-| Data        |
-| Família     |
-| Espécie     |
-| Local       |
+O projeto foi pensado para apoiar pesquisadores, curadores e demais pessoas interessadas na coleção, sem exigir conhecimento técnico em programação ou geoprocessamento. Em vez de analisar manualmente muitas linhas de uma planilha, a pessoa usuária pode importar os dados e explorar mapas, filtros, estatísticas e tabelas interativas.
+
+## Como o projeto funciona
+
+A aplicação roda no navegador e faz a leitura da planilha localmente. Ao importar um arquivo `.xlsx`, `.xls` ou `.csv`, o sistema lê a primeira aba, identifica as colunas esperadas e transforma cada linha em um registro da coleção.
+
+Depois da importação, cada registro passa por uma etapa de interpretação espacial:
+
+1. Se a coluna `Coordenadas` possui um valor válido, o sistema usa essa posição.
+2. Se a coordenada está ausente ou inválida, o sistema tenta reconhecer a coluna `Local` em uma base offline de localidades conhecidas.
+3. Se não for possível encontrar uma posição, o registro continua disponível na tabela e nas estatísticas, mas fica fora do mapa.
+
+Coordenadas em graus, minutos e segundos são convertidas automaticamente para o formato decimal, usado por mapas digitais. O sistema também reconhece pares decimais quando eles já vêm nesse formato.
+
+## Tradução da planilha para os mapas
+
+A planilha é a fonte principal dos dados. O sistema espera informações como código, data, família, espécie, local, coordenadas e observação. Durante a leitura, os cabeçalhos são normalizados, então diferenças de acentos, letras maiúsculas, minúsculas ou espaços extras são toleradas.
+
+Quando há coordenadas válidas, o registro é posicionado diretamente no mapa. Quando não há, o projeto usa uma base local com nomes e variações comuns de localidades de Alagoas, mantida no arquivo [`src/data/localCoordinates.ts`](src/data/localCoordinates.ts). Essa base cobre exemplos como Jaraguá, Ponta Verde, Pajuçara, Pontal do Peba, Morro de Camaragibe, Carro Quebrado, Porto da Rua e outros locais já mapeados.
+
+Registros associados ao **Complexo Estuarino-Lagunar Mundaú-Manguaba (CELMM)** recebem um tratamento especial. Quando o local menciona CELMM, Mundaú ou Manguaba, o registro é interpretado como parte desse complexo. No mapa municipal, esses dados são distribuídos entre os municípios relacionados: Maceió, Marechal Deodoro, Coqueiro Seco, Pilar, Rio Largo, Santa Luzia do Norte e Satuba.
+
+## Funcionalidades
+
+- Importação local de planilhas `.xlsx`, `.xls` e `.csv`.
+- Leitura da primeira aba da planilha.
+- Normalização de cabeçalhos e correção de textos importados.
+- Conversão automática de coordenadas para latitude e longitude.
+- Posicionamento por coordenadas ou por localidade conhecida.
+- Avisos para registros com data, coordenada ou local não reconhecidos.
+- Filtros por data, família, espécie, local e observação.
+- Estatísticas dos registros filtrados.
+- Tabela com ordenação, paginação, busca rápida e exportação CSV.
+- Mapa de pontos para visualizar concentração de ocorrências.
+- Mapa municipal de Alagoas com cores por quantidade de registros.
+- Detalhamento dos registros ao clicar em municípios ou métricas.
+- Exportação do mapa municipal em PNG.
+
+## Estrutura esperada da planilha
+
+A planilha deve conter estas colunas:
+
+| Coluna |
+| --- |
+| Código |
+| Data |
+| Família |
+| Espécie |
+| Local |
 | Coordenadas |
-| Observação  |
-
-### Exemplo de Registro
-
-| Código  | Data       | Família   | Espécie                       | Local      | Coordenadas            | Observação                         |
-| ------- | ---------- | --------- | ----------------------------- | ---------- | ---------------------- | ---------------------------------- |
-| CC00019 | 12/04/2025 | PENAEIDAE | Penaeus (Farfantepenaeus) sp. | Maceió, AL | 9°34'22"S / 35°46'40"W | Comprado na loja Universo Submerso |
-
----
-
-# Filtros
-
-Todos os filtros devem ser gerados dinamicamente a partir dos dados presentes na planilha carregada.
-
-As opções disponíveis devem ser recalculadas sempre que uma nova planilha for importada.
-
-## Data
-
-Filtro por intervalo de datas.
-
-### Campos
-
-* Data inicial
-* Data final
-
----
-
-## Família
-
-### Tipo
-
-Seleção múltipla (Multi Select)
-
-### Comportamento
-
-* Permitir selecionar uma ou várias famílias.
-* Possuir busca interna quando houver muitas opções.
-* Exibir quantidade de registros encontrados após aplicação dos filtros.
+| Observação |
 
 Exemplo:
 
-* PENAEIDAE
-* PORTUNIDAE
-* OCYPODIDAE
+| Código | Data | Família | Espécie | Local | Coordenadas | Observação |
+| --- | --- | --- | --- | --- | --- | --- |
+| CC00019 | 12/04/2025 | PENAEIDAE | Penaeus sp. | Maceió, AL | 9°34'22"S / 35°46'40"W | Comprado na loja Universo Submerso |
 
----
+## Visualizações
 
-## Espécie
+### Mapa de pontos
 
-### Tipo
+Mostra a concentração de ocorrências que possuem posição geográfica, seja por coordenadas da planilha ou pela identificação do local.
 
-Seleção múltipla (Multi Select)
+### Mapa por municípios
 
-### Comportamento
+Mostra a malha municipal de Alagoas. Cada município recebe uma cor de acordo com a quantidade de registros associados a ele. Quanto maior a contagem, mais intensa é a cor.
 
-* Permitir selecionar uma ou várias espécies.
-* Possuir busca interna.
-* Exibir lista ordenada alfabeticamente.
+Nesse modo, é possível mostrar ou ocultar nomes de municípios, clicar em um município para ver os registros que compõem a contagem e exportar o mapa em PNG. Quando muitos nomes ficarem próximos, o mapa usa etiquetas laterais com linhas tracejadas para conectar a etiqueta ao município correspondente.
 
-Exemplo:
+## Filtros e resultados
 
-* Penaeus (Farfantepenaeus) sp.
-* Callinectes danae
-* Ucides cordatus
+Os filtros são recalculados a partir da planilha importada e atualizam automaticamente mapa, estatísticas e tabela. É possível filtrar por intervalo de datas, família, espécie, local e texto em observações.
 
----
+A tabela de resultados mantém todos os registros importados, inclusive aqueles que não puderam ser posicionados no mapa. Ela permite busca rápida, ordenação, paginação e exportação dos dados filtrados em CSV.
 
-## Local
+## Desenvolvimento
 
-### Tipo
+Instale as dependências:
 
-Seleção múltipla (Multi Select)
-
-### Comportamento
-
-* Permitir selecionar um ou vários locais.
-* Lista construída automaticamente a partir da planilha.
-
-Exemplo:
-
-* Maceió, AL
-* Marechal Deodoro, AL
-* Paripueira, AL
-* Barra de São Miguel, AL
-
----
-
-## Observação
-
-### Tipo
-
-Busca textual
-
-### Comportamento
-
-Filtro por texto livre.
-
-Exemplos:
-
-* Comprado
-* Mercado
-* Universo Submerso
-
-A busca deve ignorar diferenças entre maiúsculas e minúsculas.
-
----
-
-# Regras de Aplicação dos Filtros
-
-Todos os filtros devem funcionar simultaneamente.
-
-Exemplo:
-
-* Data entre 01/01/2025 e 31/12/2025
-* Família = PENAEIDAE
-* Espécie = Penaeus (Farfantepenaeus) sp.
-* Local = Maceió, AL
-
-Resultado:
-
-* mapa atualizado
-* estatísticas atualizadas
-* tabela atualizada
-
----
-
-# Tratamento de Coordenadas
-
-## Formato Recebido
-
-As coordenadas da planilha serão fornecidas em formato DMS (Graus, Minutos e Segundos).
-
-Exemplo:
-
-```text
-9°34'22"S / 35°46'40"W
+```bash
+pnpm install
 ```
 
----
+Rode o app localmente:
 
-## Conversão Obrigatória
-
-O sistema deverá converter automaticamente as coordenadas para formato decimal antes da renderização no mapa.
-
-Exemplo:
-
-```text
-9°34'22"S / 35°46'40"W
-↓
--9.572778, -35.777778
+```bash
+pnpm dev
 ```
 
----
+Comandos de verificação:
 
-## Utilitário
-
-Criar um módulo específico para conversão:
-
-```text
-src/utils/parseCoordinates.ts
+```bash
+pnpm test
+pnpm lint
+pnpm build
 ```
 
-Responsabilidades:
+## Tecnologias
 
-* Ler coordenadas DMS
-* Converter para decimal
-* Validar formatos inválidos
-* Retornar latitude e longitude prontas para uso no Leaflet
-
----
-
-# Mapa
-
-## Biblioteca
-
-* Leaflet
-* React Leaflet
-* Leaflet Heat
-
----
-
-## Fonte dos Dados
-
-Utilizar as coordenadas convertidas da coluna:
-
-```text
-Coordenadas
-```
-
----
-
-## Heatmap
-
-Cada registro da planilha representa uma ocorrência.
-
-A intensidade do heatmap deverá aumentar de acordo com a concentração de ocorrências em uma determinada região.
-
-Quanto maior o número de registros próximos, maior a intensidade exibida.
-
----
-
-## Modos de Visualização
-
-### Heatmap
-
-Visualização principal.
-
-Exibir concentração de ocorrências.
-
-### Marcadores Individuais
-
-Visualização auxiliar para validação dos dados.
-
-Cada registro será exibido como um marcador individual.
-
-Objetivo:
-
-* verificar coordenadas
-* validar importação
-* identificar erros de localização
-
----
-
-## Alternância
-
-Adicionar botão:
-
-```text
-Heatmap
-Marcadores
-```
-
-Permitindo alternar entre os dois modos.
-
----
-
-# Estatísticas
-
-Exibir:
-
-## Resumo
-
-* Total de registros filtrados
-* Total de famílias encontradas
-* Total de espécies encontradas
-* Total de locais encontrados
-
-## Distribuição
-
-* Registros por família
-* Registros por espécie
-* Registros por local
-
----
-
-# Tabela de Resultados
-
-Exibir todos os registros filtrados.
-
-Colunas:
-
-* Código
-* Data
-* Família
-* Espécie
-* Local
-* Coordenadas
-* Observação
-
-Funcionalidades:
-
-* Ordenação
-* Paginação
-* Busca rápida
-* Exportação
-
----
-
-# Melhorias de UX
-
-## Filtros
-
-Adicionar:
-
-* Limpar filtros
-* Selecionar todos
-* Remover seleção
-* Contador de itens selecionados
-
-Exemplo:
-
-```text
-Família (3 selecionadas)
-Espécie (12 selecionadas)
-Local (2 selecionados)
-```
-
----
-
-## Upload
-
-Ao carregar nova planilha:
-
-* limpar filtros atuais
-* recalcular opções dos filtros
-* recalcular estatísticas
-* atualizar mapa automaticamente
-
----
-
-# MVP (Versão Inicial)
-
-A primeira versão deverá conter:
-
-* Upload de Excel (.xlsx, .xls, .csv)
-* Conversão automática de coordenadas DMS
-* Filtro por período
-* Filtro de Família (multiselect)
-* Filtro de Espécie (multiselect)
-* Filtro de Local (multiselect)
-* Filtro de Observação (texto)
-* Heatmap
-* Visualização por marcadores
-* Estatísticas básicas
-* Tabela de resultados
-* Exportação CSV
-* Interface responsiva
-* Tema claro
-* Execução local
+- React
+- Vite
+- TypeScript
+- Tailwind CSS
+- Componentes estilo shadcn/ui
+- SheetJS (`xlsx`)
+- Leaflet, React Leaflet e Leaflet Heat
+- TanStack Table
+- Vitest

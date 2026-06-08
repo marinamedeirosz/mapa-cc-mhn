@@ -96,7 +96,7 @@ function App() {
               <MapPinned className="size-4 text-primary" />
               Ocorrências biológicas georreferenciadas
             </div>
-            <h1 className="text-2xl font-semibold tracking-normal">Mapa de calor</h1>
+            <h1 className="text-2xl font-semibold tracking-normal">Mapa CC MNH</h1>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{state.records.length} registros importados</Badge>

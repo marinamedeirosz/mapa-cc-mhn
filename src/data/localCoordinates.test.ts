@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { resolveLocalCoordinates } from './localCoordinates'
+import { localCoordinates, resolveLocalCoordinates } from './localCoordinates'
+
+function normalizeLocal(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\bal\b/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+}
 
 describe('resolveLocalCoordinates', () => {
   it('resolves locations with accents and state suffix', () => {
@@ -23,20 +34,28 @@ describe('resolveLocalCoordinates', () => {
 
   it('resolves known locality aliases from the spreadsheet', () => {
     expect(resolveLocalCoordinates('Pontal do Peba')).toMatchObject({
-      municipality: 'Piacabucu',
+      municipality: 'Piaçabuçu',
     })
-    expect(resolveLocalCoordinates('JaraguÃ¡')).toMatchObject({
-      municipality: 'Maceio',
+    expect(resolveLocalCoordinates('Jaraguá')).toMatchObject({
+      municipality: 'Maceió',
     })
     expect(resolveLocalCoordinates('Morro de Camaragibe - Praia')).toMatchObject({
       municipality: 'Passo de Camaragibe',
     })
-    expect(resolveLocalCoordinates('PajuÃ§ara')).toMatchObject({
-      municipality: 'Maceio',
+    expect(resolveLocalCoordinates('Pajuçara')).toMatchObject({
+      municipality: 'Maceió',
     })
     expect(resolveLocalCoordinates('Paripieira')).toMatchObject({
       municipality: 'Paripueira',
     })
+  })
+
+  it('does not duplicate aliases after normalization', () => {
+    const normalizedAliases = localCoordinates.flatMap((entry) =>
+      entry.aliases.map((alias) => normalizeLocal(alias)),
+    )
+
+    expect(new Set(normalizedAliases).size).toBe(normalizedAliases.length)
   })
 
   it('does not match aliases inside longer unrelated words', () => {

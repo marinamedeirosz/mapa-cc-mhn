@@ -1,13 +1,19 @@
 import L from 'leaflet'
-import { Layers, Map, MapPinned } from 'lucide-react'
+import { Download, Layers, Map, MapPinned, Tags } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  buildMunicipalityReportSvg,
+  downloadMunicipalityMapPng,
+  getMunicipalityMapFileName,
+} from '@/lib/municipalityMapExport'
 import type { MunicipalityAggregation } from '@/lib/municipalityAggregation'
 import type { MunicipalityAssignmentRef, MunicipalityRecordRef } from '@/lib/municipalityAggregation'
 import type { MunicipalityCount } from '@/lib/municipalityAggregation'
@@ -30,6 +36,8 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
     useState<MunicipalityFeatureCollection | null>(null)
   const [selectedMunicipalityId, setSelectedMunicipalityId] = useState<string | null>(null)
   const [selectedMetric, setSelectedMetric] = useState<MetricDetail | null>(null)
+  const [showMunicipalityLabels, setShowMunicipalityLabels] = useState(true)
+  const [isExportingMunicipalityMap, setIsExportingMunicipalityMap] = useState(false)
   const positionedRecords = records.filter(
     (record) => record.latitude !== null && record.longitude !== null,
   )
@@ -44,6 +52,26 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
     selectedMunicipalityId && municipalityAggregation
       ? municipalityAggregation.counts.get(selectedMunicipalityId) ?? null
       : null
+  const canExportMunicipalityMap = Boolean(municipalityGeojson && municipalityAggregation)
+
+  async function handleExportMunicipalityMap() {
+    if (!municipalityGeojson || !municipalityAggregation || isExportingMunicipalityMap) {
+      return
+    }
+
+    setIsExportingMunicipalityMap(true)
+
+    try {
+      const svg = buildMunicipalityReportSvg({
+        geojson: municipalityGeojson,
+        aggregation: municipalityAggregation,
+        showLabels: showMunicipalityLabels,
+      })
+      await downloadMunicipalityMapPng(svg, getMunicipalityMapFileName())
+    } finally {
+      setIsExportingMunicipalityMap(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -74,11 +102,33 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
 
   return (
     <Card className="min-h-[460px] overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <MapPinned className="size-4" />
           Mapa
         </CardTitle>
+        {mode === 'municipalities' ? (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant={showMunicipalityLabels ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={() => setShowMunicipalityLabels((value) => !value)}
+            >
+              <Tags />
+              Nomes
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={!canExportMunicipalityMap || isExportingMunicipalityMap}
+              onClick={handleExportMunicipalityMap}
+            >
+              <Download />
+              {isExportingMunicipalityMap ? 'Exportando...' : 'Exportar mapa'}
+            </Button>
+          </div>
+        ) : null}
         <Tabs value={mode} onValueChange={(value) => onModeChange(value as MapMode)}>
           <TabsList>
             <TabsTrigger value="heatmap">
@@ -111,6 +161,7 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
                 geojson={municipalityGeojson}
                 aggregation={municipalityAggregation}
                 onMunicipalityClick={setSelectedMunicipalityId}
+                showLabels={showMunicipalityLabels}
               />
             ) : null
           ) : null}
