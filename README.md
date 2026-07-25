@@ -38,9 +38,10 @@ Registros associados ao **Complexo Estuarino-Lagunar Mundaú-Manguaba (CELMM)** 
 - Estatísticas dos registros filtrados.
 - Tabela com ordenação, paginação, busca rápida e exportação CSV.
 - Mapa de pontos para visualizar concentração de ocorrências.
-- Mapa municipal de Alagoas com cores por quantidade de registros.
-- Detalhamento dos registros ao clicar em municípios ou métricas.
-- Exportação do mapa municipal em PNG.
+- Mapa municipal de Alagoas agrupado por lotes, famílias ou espécies.
+- Cor de destaque do mapa configurável por paletas ou seletor personalizado.
+- Detalhamento dos agrupadores e lotes ao clicar em municípios ou métricas.
+- Exportação do mapa municipal em PNG com o agrupador e a cor selecionados.
 
 ## Estrutura esperada da planilha
 
@@ -70,9 +71,11 @@ Mostra a concentração de ocorrências que possuem posição geográfica, seja 
 
 ### Mapa por municípios
 
-Mostra a malha municipal de Alagoas. Cada município recebe uma cor de acordo com a quantidade de registros associados a ele. Quanto maior a contagem, mais intensa é a cor.
+Mostra a malha municipal de Alagoas. O controle **Agrupar por** permite contar lotes, famílias ou espécies em cada município. Quanto maior a contagem selecionada, mais intensa é a cor. Família e espécie são deduplicadas sem considerar diferenças de caixa, acentos, espaços ou pontuação; células vazias não formam um grupo e seus lotes são sinalizados separadamente.
 
-Nesse modo, é possível mostrar ou ocultar nomes de municípios, clicar em um município para ver os registros que compõem a contagem e exportar o mapa em PNG. A exportação gera apenas o mapa municipal, em formato horizontal, com etiquetas no formato `Município (número)` e linhas tracejadas quando for necessário deslocar nomes para fora da malha.
+O botão **Cor** oferece paletas roxa, azul, verde e laranja, além de uma cor personalizada. A aplicação gera automaticamente tons mais claros para as menores intensidades, salva a preferência no navegador e permite restaurar o roxo padrão.
+
+Nesse modo, é possível mostrar ou ocultar nomes, clicar em um município para ver os agrupadores e seus lotes, abrir os detalhamentos das métricas e exportar o mapa em PNG. A exportação usa o agrupador e a cor ativos, gera apenas o mapa municipal em formato horizontal e inclui o agrupador no nome do arquivo. As etiquetas seguem o formato `Município (número)` e usam linhas tracejadas quando é necessário deslocar nomes para fora da malha.
 
 ## Filtros e resultados
 

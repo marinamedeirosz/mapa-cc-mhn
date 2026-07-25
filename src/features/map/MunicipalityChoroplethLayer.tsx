@@ -18,6 +18,7 @@ interface MunicipalityChoroplethLayerProps {
   aggregation: MunicipalityAggregation
   onMunicipalityClick: (municipalityId: string) => void
   showLabels: boolean
+  accentColor: string
 }
 
 export function MunicipalityChoroplethLayer({
@@ -25,6 +26,7 @@ export function MunicipalityChoroplethLayer({
   aggregation,
   onMunicipalityClick,
   showLabels,
+  accentColor,
 }: MunicipalityChoroplethLayerProps) {
   const map = useMap()
   const [mapRevision, setMapRevision] = useState(0)
@@ -76,7 +78,7 @@ export function MunicipalityChoroplethLayer({
   return (
     <>
       <GeoJSON
-        key={`${aggregation.max}-${aggregation.totalMunicipalized}-${aggregation.unresolved}`}
+        key={`${aggregation.grouping}-${aggregation.max}-${aggregation.totalAssignments}-${aggregation.unresolvedLots}-${accentColor}`}
         data={geojson}
         style={(feature) => {
           const municipalityFeature = feature as MunicipalityFeature
@@ -85,7 +87,7 @@ export function MunicipalityChoroplethLayer({
 
           return {
             color: '#65736f',
-            fillColor: getMunicipalityColor(count, aggregation.max),
+            fillColor: getMunicipalityColor(count, aggregation.max, accentColor),
             fillOpacity: count > 0 ? 0.82 : 0.45,
             opacity: 0.95,
             weight: count > 0 ? 1.4 : 0.8,
@@ -97,10 +99,14 @@ export function MunicipalityChoroplethLayer({
           const data = aggregation.counts.get(id)
           const name = municipalityFeature.properties.name
           const total = data?.total ?? 0
+          const lotTotal = data?.lotTotal ?? 0
+          const unit = aggregation.grouping === 'lot' ? 'lote(s)' : aggregation.grouping === 'family' ? 'família(s)' : 'espécie(s)'
+          const missing = data?.missingGroupingLots ?? 0
+          const missingText = missing > 0 ? ` · ${missing} lote(s) sem informação` : ''
 
-          layer.bindTooltip(`${name}: ${total}`, { sticky: true })
+          layer.bindTooltip(`${name}: ${total} ${unit} · ${lotTotal} lote(s)${missingText}`, { sticky: true })
           layer.on('click', () => {
-            if (total > 0) {
+            if (lotTotal > 0) {
               onMunicipalityClick(id)
             }
           })

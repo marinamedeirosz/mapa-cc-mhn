@@ -22,8 +22,8 @@ const geojson: MunicipalityFeatureCollection = {
 
 describe('municipalityMapExport', () => {
   it('builds a stable PNG file name', () => {
-    expect(getMunicipalityMapFileName(new Date(2026, 5, 7))).toBe(
-      'mapa-municipios-alagoas-2026-06-07.png',
+    expect(getMunicipalityMapFileName('family', new Date(2026, 5, 7))).toBe(
+      'mapa-municipios-alagoas-por-familias-2026-06-07.png',
     )
   })
 
@@ -198,6 +198,17 @@ describe('municipalityMapExport', () => {
     expect(svg).not.toContain('No mapa')
     expect(svg).not.toContain('Top municipios')
   })
+
+  it('uses the selected accent color in the exported map', () => {
+    const svg = buildMunicipalityReportSvg({
+      geojson,
+      aggregation: aggregationWithCounts([['a', 'Maceio', 10]]),
+      showLabels: false,
+      accentColor: '#0f4c81',
+    })
+
+    expect(svg).toContain('#0f4c81')
+  })
 })
 
 function aggregationWithCounts(items: Array<[string, string, number]>): MunicipalityAggregation {
@@ -210,22 +221,40 @@ function aggregationWithCounts(items: Array<[string, string, number]>): Municipa
         direct: total,
         celmm: 0,
         total,
+        lotTotal: total,
+        directLots: total,
+        celmmLots: 0,
+        missingGroupingLots: 0,
         records: [],
+        groups: [],
       },
     ]),
   )
   const totalMunicipalized = items.reduce((total, item) => total + item[2], 0)
 
   return {
+    grouping: 'lot',
     counts,
     max: Math.max(...items.map((item) => item[2])),
-    municipalitiesWithRecords: items.length,
-    totalRecords: totalMunicipalized,
-    recordsWithMunicipality: totalMunicipalized,
-    directRecords: totalMunicipalized,
-    celmmRecords: 0,
-    totalMunicipalized,
-    unresolved: 0,
+    municipalitiesWithGroups: items.length,
+    totalGroups: totalMunicipalized,
+    groupsWithMunicipality: totalMunicipalized,
+    directGroups: totalMunicipalized,
+    celmmGroups: 0,
+    totalAssignments: totalMunicipalized,
+    unresolvedGroups: 0,
+    totalLots: totalMunicipalized,
+    lotsWithMunicipality: totalMunicipalized,
+    directLots: totalMunicipalized,
+    celmmLots: 0,
+    unresolvedLots: 0,
+    groups: [],
+    mappedGroups: [],
+    directGroupItems: [],
+    celmmGroupItems: [],
+    unresolvedGroupItems: [],
+    groupAssignments: [],
+    missingGroupingRecords: [],
     mappedRecords: [],
     directRecordRefs: [],
     celmmRecordRefs: [],

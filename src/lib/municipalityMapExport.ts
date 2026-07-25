@@ -3,6 +3,7 @@ import type {
   MunicipalityAggregation,
   MunicipalityFeature,
   MunicipalityFeatureCollection,
+  MunicipalityGrouping,
 } from '@/lib/municipalityAggregation'
 
 export interface ProjectedPoint {
@@ -43,6 +44,7 @@ interface ReportSvgOptions {
   geojson: MunicipalityFeatureCollection
   aggregation: MunicipalityAggregation
   showLabels: boolean
+  accentColor?: string
   width?: number
   height?: number
 }
@@ -59,12 +61,16 @@ const smallMunicipalityAreaThreshold = 1800
 const calloutColumnWidth = 240
 const calloutColumnGap = 24
 
-export function getMunicipalityMapFileName(date = new Date()): string {
+export function getMunicipalityMapFileName(
+  grouping: MunicipalityGrouping = 'lot',
+  date = new Date(),
+): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
+  const groupingSlug = grouping === 'lot' ? 'lotes' : grouping === 'family' ? 'familias' : 'especies'
 
-  return `mapa-municipios-alagoas-${year}-${month}-${day}.png`
+  return `mapa-municipios-alagoas-por-${groupingSlug}-${year}-${month}-${day}.png`
 }
 
 export function formatMunicipalityLabel(name: string, total: number): string {
@@ -155,6 +161,7 @@ export function buildMunicipalityReportSvg({
   geojson,
   aggregation,
   showLabels,
+  accentColor,
   width = reportWidth,
   height = reportHeight,
 }: ReportSvgOptions): string {
@@ -178,7 +185,7 @@ export function buildMunicipalityReportSvg({
   <rect width="100%" height="100%" fill="#f8faf8"/>
   <rect x="${mapX}" y="${mapY}" width="${mapWidth}" height="${mapHeight}" rx="10" fill="#dcecef" stroke="#c6d6d8"/>
   <g>
-    ${geojson.features.map((feature) => featureToSvg(feature, aggregation, projection)).join('\n    ')}
+    ${geojson.features.map((feature) => featureToSvg(feature, aggregation, projection, accentColor)).join('\n    ')}
   </g>
   ${labels.map(labelToSvg).join('\n  ')}
 </svg>`
@@ -221,10 +228,11 @@ function featureToSvg(
   feature: MunicipalityFeature,
   aggregation: MunicipalityAggregation,
   projection: SvgProjection,
+  accentColor?: string,
 ): string {
   const id = getMunicipalityFeatureId(feature)
   const count = aggregation.counts.get(id)?.total ?? 0
-  const fillColor = getMunicipalityColor(count, aggregation.max)
+  const fillColor = getMunicipalityColor(count, aggregation.max, accentColor)
   const fillOpacity = count > 0 ? 0.84 : 0.5
   const weight = count > 0 ? 1.35 : 0.8
 

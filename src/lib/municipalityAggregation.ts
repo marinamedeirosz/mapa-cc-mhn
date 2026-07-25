@@ -22,13 +22,30 @@ export interface MunicipalityFeatureCollection {
   features: MunicipalityFeature[]
 }
 
+export type MunicipalityGrouping = 'lot' | 'family' | 'species'
+
+export interface MunicipalityGroup {
+  key: string
+  label: string
+  total: number
+  direct: number
+  celmm: number
+  records: OccurrenceRecord[]
+  refs: MunicipalityRecordRef[]
+}
+
 export interface MunicipalityCount {
   id: string
   name: string
   direct: number
   celmm: number
   total: number
+  lotTotal: number
+  directLots: number
+  celmmLots: number
+  missingGroupingLots: number
   records: MunicipalityRecordRef[]
+  groups: MunicipalityGroup[]
 }
 
 export interface MunicipalityRecordRef {
@@ -41,16 +58,35 @@ export interface MunicipalityAssignmentRef extends MunicipalityRecordRef {
   municipalityName: string
 }
 
+export interface MunicipalityGroupAssignment {
+  municipalityId: string
+  municipalityName: string
+  group: MunicipalityGroup
+}
+
 export interface MunicipalityAggregation {
+  grouping: MunicipalityGrouping
   counts: Map<string, MunicipalityCount>
   max: number
-  municipalitiesWithRecords: number
-  totalRecords: number
-  recordsWithMunicipality: number
-  directRecords: number
-  celmmRecords: number
-  totalMunicipalized: number
-  unresolved: number
+  municipalitiesWithGroups: number
+  totalGroups: number
+  groupsWithMunicipality: number
+  directGroups: number
+  celmmGroups: number
+  totalAssignments: number
+  unresolvedGroups: number
+  totalLots: number
+  lotsWithMunicipality: number
+  directLots: number
+  celmmLots: number
+  unresolvedLots: number
+  groups: MunicipalityGroup[]
+  mappedGroups: MunicipalityGroup[]
+  directGroupItems: MunicipalityGroup[]
+  celmmGroupItems: MunicipalityGroup[]
+  unresolvedGroupItems: MunicipalityGroup[]
+  groupAssignments: MunicipalityGroupAssignment[]
+  missingGroupingRecords: OccurrenceRecord[]
   mappedRecords: OccurrenceRecord[]
   directRecordRefs: MunicipalityRecordRef[]
   celmmRecordRefs: MunicipalityRecordRef[]
@@ -73,6 +109,7 @@ export const celmmMunicipalities = [
 export function aggregateByMunicipality(
   records: OccurrenceRecord[],
   geojson: MunicipalityFeatureCollection | null,
+  grouping: MunicipalityGrouping = 'lot',
 ): MunicipalityAggregation {
   const counts = new Map<string, MunicipalityCount>()
   const municipalitiesByName = buildMunicipalityNameMap(geojson)
@@ -126,13 +163,32 @@ export function aggregateByMunicipality(
   }
 
   const values = Array.from(counts.values())
-  const max = values.reduce((currentMax, item) => Math.max(currentMax, item.total), 0)
   const mappedRecords = new Map<string, OccurrenceRecord>()
   const directRecords = new Map<string, MunicipalityRecordRef>()
   const celmmRecords = new Map<string, MunicipalityRecordRef>()
   const assignmentRefs: MunicipalityAssignmentRef[] = []
+  const groupAssignments: MunicipalityGroupAssignment[] = []
 
   for (const item of values) {
+    item.groups = buildGroupsFromRefs(item.records, grouping)
+    item.total = item.groups.length
+    item.direct = item.groups.filter((group) => group.direct > 0).length
+    item.celmm = item.groups.filter((group) => group.celmm > 0).length
+    item.lotTotal = item.records.length
+    item.directLots = item.records.filter((ref) => ref.source === 'direct').length
+    item.celmmLots = item.records.filter((ref) => ref.source === 'celmm').length
+    item.missingGroupingLots = item.records.filter(
+      ({ record }) => !getGroupIdentity(record, grouping),
+    ).length
+
+    for (const group of item.groups) {
+      groupAssignments.push({
+        municipalityId: item.id,
+        municipalityName: item.name,
+        group,
+      })
+    }
+
     for (const recordRef of item.records) {
       const { record, source } = recordRef
       mappedRecords.set(record.id, record)
@@ -150,16 +206,43 @@ export function aggregateByMunicipality(
     }
   }
 
+  const allAssignmentRefs = values.flatMap((item) => item.records)
+  const groups = buildGroupsFromRecords(records, grouping)
+  const mappedGroups = buildGroupsFromRefs(allAssignmentRefs, grouping)
+  const directGroupItems = buildGroupsFromRefs(
+    allAssignmentRefs.filter((ref) => ref.source === 'direct'),
+    grouping,
+  )
+  const celmmGroupItems = buildGroupsFromRefs(
+    allAssignmentRefs.filter((ref) => ref.source === 'celmm'),
+    grouping,
+  )
+  const unresolvedGroupItems = buildGroupsFromRecords(unresolvedRecords, grouping)
+  const missingGroupingRecords = records.filter((record) => !getGroupIdentity(record, grouping))
+
   return {
+    grouping,
     counts,
-    max,
-    municipalitiesWithRecords: values.filter((item) => item.total > 0).length,
-    totalRecords: records.length,
-    recordsWithMunicipality: mappedRecords.size,
-    directRecords: directRecords.size,
-    celmmRecords: celmmRecords.size,
-    totalMunicipalized: values.reduce((total, item) => total + item.total, 0),
-    unresolved: unresolvedRecords.length,
+    max: values.reduce((currentMax, item) => Math.max(currentMax, item.total), 0),
+    municipalitiesWithGroups: values.filter((item) => item.total > 0).length,
+    totalGroups: groups.length,
+    groupsWithMunicipality: mappedGroups.length,
+    directGroups: directGroupItems.length,
+    celmmGroups: celmmGroupItems.length,
+    totalAssignments: groupAssignments.length,
+    unresolvedGroups: unresolvedGroupItems.length,
+    totalLots: records.length,
+    lotsWithMunicipality: mappedRecords.size,
+    directLots: directRecords.size,
+    celmmLots: celmmRecords.size,
+    unresolvedLots: unresolvedRecords.length,
+    groups,
+    mappedGroups,
+    directGroupItems,
+    celmmGroupItems,
+    unresolvedGroupItems,
+    groupAssignments,
+    missingGroupingRecords,
     mappedRecords: Array.from(mappedRecords.values()),
     directRecordRefs: Array.from(directRecords.values()),
     celmmRecordRefs: Array.from(celmmRecords.values()),
@@ -168,32 +251,140 @@ export function aggregateByMunicipality(
   }
 }
 
+function buildGroupsFromRecords(
+  records: OccurrenceRecord[],
+  grouping: MunicipalityGrouping,
+): MunicipalityGroup[] {
+  return buildGroups(
+    records.map((record) => ({ record, source: null })),
+    grouping,
+  )
+}
+
+function buildGroupsFromRefs(
+  refs: MunicipalityRecordRef[],
+  grouping: MunicipalityGrouping,
+): MunicipalityGroup[] {
+  return buildGroups(refs, grouping)
+}
+
+function buildGroups(
+  items: Array<{ record: OccurrenceRecord; source: MunicipalityRecordRef['source'] | null }>,
+  grouping: MunicipalityGrouping,
+): MunicipalityGroup[] {
+  const groups = new Map<
+    string,
+    {
+      label: string
+      records: Map<string, OccurrenceRecord>
+      refs: Map<string, MunicipalityRecordRef>
+    }
+  >()
+
+  for (const { record, source } of items) {
+    const identity = getGroupIdentity(record, grouping)
+
+    if (!identity) {
+      continue
+    }
+
+    const group = groups.get(identity.key) ?? {
+      label: identity.label,
+      records: new Map<string, OccurrenceRecord>(),
+      refs: new Map<string, MunicipalityRecordRef>(),
+    }
+
+    group.records.set(record.id, record)
+    if (source) {
+      group.refs.set(`${record.id}-${source}`, { record, source })
+    }
+    groups.set(identity.key, group)
+  }
+
+  return Array.from(groups.entries())
+    .map(([key, group]) => {
+      const refs = Array.from(group.refs.values())
+      return {
+        key,
+        label: group.label,
+        total: group.records.size,
+        direct: new Set(
+          refs.filter((ref) => ref.source === 'direct').map((ref) => ref.record.id),
+        ).size,
+        celmm: new Set(
+          refs.filter((ref) => ref.source === 'celmm').map((ref) => ref.record.id),
+        ).size,
+        records: Array.from(group.records.values()),
+        refs,
+      }
+    })
+    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label, 'pt-BR'))
+}
+
+function getGroupIdentity(
+  record: OccurrenceRecord,
+  grouping: MunicipalityGrouping,
+): { key: string; label: string } | null {
+  if (grouping === 'lot') {
+    return {
+      key: `lot:${record.id}`,
+      label: record.code || `Lote da linha ${record.rowNumber}`,
+    }
+  }
+
+  const value = grouping === 'family' ? record.family.trim() : record.species.trim()
+  const normalized = normalizeText(value)
+
+  return normalized ? { key: `${grouping}:${normalized}`, label: value } : null
+}
+
 function hasExplicitCelmm(local: string): boolean {
   const normalizedLocal = normalizeText(local)
 
   return ['celmm', 'mundau', 'manguaba'].some((term) => normalizedLocal.includes(term))
 }
 
-export function getMunicipalityColor(count: number, max: number): string {
+export const defaultMunicipalityAccentColor = '#5b0633'
+export const municipalityEmptyColor = '#f4f1e8'
+
+export function isValidHexColor(value: string): boolean {
+  return /^#[0-9a-f]{6}$/i.test(value)
+}
+
+export function getMunicipalityColor(
+  count: number,
+  max: number,
+  accentColor = defaultMunicipalityAccentColor,
+): string {
   if (count <= 0 || max <= 0) {
-    return '#f4f1e8'
+    return municipalityEmptyColor
   }
 
   const ratio = count / max
+  const validAccent = isValidHexColor(accentColor)
+    ? accentColor.toLowerCase()
+    : defaultMunicipalityAccentColor
 
   if (ratio >= 0.8) {
-    return '#5b0633'
+    return validAccent
   }
 
   if (ratio >= 0.55) {
-    return '#893160'
+    return mixWithWhite(validAccent, 0.2)
   }
 
   if (ratio >= 0.3) {
-    return '#b24b82'
+    return mixWithWhite(validAccent, 0.4)
   }
 
-  return '#f575b9'
+  return mixWithWhite(validAccent, 0.62)
+}
+
+function mixWithWhite(color: string, amount: number): string {
+  const channels = [1, 3, 5].map((start) => Number.parseInt(color.slice(start, start + 2), 16))
+  const mixed = channels.map((channel) => Math.round(channel + (255 - channel) * amount))
+
+  return `#${mixed.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
 }
 
 function buildMunicipalityNameMap(
@@ -223,11 +414,14 @@ function increment(
       direct: 0,
       celmm: 0,
       total: 0,
+      lotTotal: 0,
+      directLots: 0,
+      celmmLots: 0,
+      missingGroupingLots: 0,
       records: [],
+      groups: [],
     } satisfies MunicipalityCount)
 
-  existing[kind] += 1
-  existing.total += 1
   existing.records.push({ record, source: kind })
   counts.set(id, existing)
 }

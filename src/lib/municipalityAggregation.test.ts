@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { aggregateByMunicipality, celmmMunicipalities } from './municipalityAggregation'
+import {
+  aggregateByMunicipality,
+  celmmMunicipalities,
+  defaultMunicipalityAccentColor,
+  getMunicipalityColor,
+} from './municipalityAggregation'
 import type { MunicipalityFeatureCollection } from './municipalityAggregation'
 import type { OccurrenceRecord } from '@/types'
 
@@ -39,22 +44,22 @@ describe('aggregateByMunicipality', () => {
     expect(maceio).toMatchObject({ direct: 1, celmm: 0, total: 1 })
     expect(maceio?.records).toHaveLength(1)
     expect(maceio?.records[0].source).toBe('direct')
-    expect(aggregation.totalRecords).toBe(1)
-    expect(aggregation.recordsWithMunicipality).toBe(1)
-    expect(aggregation.directRecords).toBe(1)
-    expect(aggregation.celmmRecords).toBe(0)
-    expect(aggregation.unresolved).toBe(0)
+    expect(aggregation.totalGroups).toBe(1)
+    expect(aggregation.groupsWithMunicipality).toBe(1)
+    expect(aggregation.directGroups).toBe(1)
+    expect(aggregation.celmmGroups).toBe(0)
+    expect(aggregation.unresolvedGroups).toBe(0)
   })
 
   it('distributes explicit CELMM records to all configured municipalities', () => {
     const aggregation = aggregateByMunicipality([record({ local: 'CELMM' })], geojson)
 
-    expect(aggregation.municipalitiesWithRecords).toBe(celmmMunicipalities.length)
-    expect(aggregation.totalMunicipalized).toBe(celmmMunicipalities.length)
-    expect(aggregation.totalRecords).toBe(1)
-    expect(aggregation.recordsWithMunicipality).toBe(1)
-    expect(aggregation.directRecords).toBe(0)
-    expect(aggregation.celmmRecords).toBe(1)
+    expect(aggregation.municipalitiesWithGroups).toBe(celmmMunicipalities.length)
+    expect(aggregation.totalAssignments).toBe(celmmMunicipalities.length)
+    expect(aggregation.totalGroups).toBe(1)
+    expect(aggregation.groupsWithMunicipality).toBe(1)
+    expect(aggregation.directGroups).toBe(0)
+    expect(aggregation.celmmGroups).toBe(1)
     expect(Array.from(aggregation.counts.values()).every((item) => item.celmm === 1)).toBe(true)
     expect(Array.from(aggregation.counts.values()).every((item) => item.records[0].source === 'celmm')).toBe(true)
   })
@@ -62,10 +67,10 @@ describe('aggregateByMunicipality', () => {
   it('distributes Mundaú and Manguaba aliases as CELMM', () => {
     const aggregation = aggregateByMunicipality([record({ local: 'Lagoa Mundaú' })], geojson)
 
-    expect(aggregation.municipalitiesWithRecords).toBe(celmmMunicipalities.length)
-    expect(aggregation.totalMunicipalized).toBe(celmmMunicipalities.length)
-    expect(aggregation.recordsWithMunicipality).toBe(1)
-    expect(aggregation.unresolved).toBe(0)
+    expect(aggregation.municipalitiesWithGroups).toBe(celmmMunicipalities.length)
+    expect(aggregation.totalAssignments).toBe(celmmMunicipalities.length)
+    expect(aggregation.groupsWithMunicipality).toBe(1)
+    expect(aggregation.unresolvedGroups).toBe(0)
     expect(Array.from(aggregation.counts.values()).every((item) => item.records.length === item.total)).toBe(true)
   })
 
@@ -99,7 +104,67 @@ describe('aggregateByMunicipality', () => {
     const maceio = Array.from(aggregation.counts.values()).find((item) => item.name === 'Maceió')
 
     expect(maceio).toMatchObject({ direct: 1, total: 1 })
-    expect(aggregation.unresolved).toBe(0)
+    expect(aggregation.unresolvedGroups).toBe(0)
+  })
+
+  it('deduplicates normalized families within each municipality and keeps their lots', () => {
+    const aggregation = aggregateByMunicipality(
+      [
+        record({ id: 'a', family: 'PENAEIDAE' }),
+        record({ id: 'b', family: 'Penaeidae' }),
+      ],
+      geojson,
+      'family',
+    )
+    const maceio = Array.from(aggregation.counts.values()).find((item) => item.name === 'Maceió')
+
+    expect(maceio).toMatchObject({ total: 1, lotTotal: 2, direct: 1, celmm: 0 })
+    expect(maceio?.groups[0]).toMatchObject({ label: 'PENAEIDAE', total: 2 })
+    expect(aggregation.totalGroups).toBe(1)
+    expect(aggregation.totalAssignments).toBe(1)
+  })
+
+  it('excludes missing taxa from groups and retains the affected lots', () => {
+    const aggregation = aggregateByMunicipality(
+      [record({ id: 'missing', family: '' })],
+      geojson,
+      'family',
+    )
+    const maceio = Array.from(aggregation.counts.values()).find((item) => item.name === 'Maceió')
+
+    expect(maceio).toMatchObject({ total: 0, lotTotal: 1, missingGroupingLots: 1 })
+    expect(aggregation.totalGroups).toBe(0)
+    expect(aggregation.missingGroupingRecords.map((item) => item.id)).toEqual(['missing'])
+  })
+
+  it('counts a taxon once when direct and CELMM lots overlap in a municipality', () => {
+    const aggregation = aggregateByMunicipality(
+      [
+        record({ id: 'direct', species: 'Penaeus sp.' }),
+        record({ id: 'celmm', local: 'CELMM', species: 'Penaeus sp' }),
+      ],
+      geojson,
+      'species',
+    )
+    const maceio = Array.from(aggregation.counts.values()).find((item) => item.name === 'Maceió')
+
+    expect(maceio).toMatchObject({ total: 1, direct: 1, celmm: 1, lotTotal: 2 })
+    expect(aggregation.directGroups).toBe(1)
+    expect(aggregation.celmmGroups).toBe(1)
+    expect(aggregation.totalAssignments).toBe(celmmMunicipalities.length)
+  })
+})
+
+describe('getMunicipalityColor', () => {
+  it('builds lighter intensity bands from the selected accent', () => {
+    expect(getMunicipalityColor(10, 10, '#0f4c81')).toBe('#0f4c81')
+    expect(getMunicipalityColor(6, 10, '#0f4c81')).toBe('#3f709a')
+    expect(getMunicipalityColor(1, 10, '#0f4c81')).toBe('#a4bbcf')
+  })
+
+  it('falls back to the default accent when a persisted color is invalid', () => {
+    expect(getMunicipalityColor(10, 10, 'invalid')).toBe(defaultMunicipalityAccentColor)
+    expect(getMunicipalityColor(0, 10, '#0f4c81')).toBe('#f4f1e8')
   })
 })
 
