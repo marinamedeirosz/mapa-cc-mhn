@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "Se você usar esta ferramenta, cite-a conforme os metadados abaixo."
+type: software
+title: "Mapa CC MHN: facilitador para visualização da representatividade espacial de coleções carcinológicas"
+authors:
+  - given-names: "Marina Medeiros Correia"
+    name-particle: "de"
+    family-names: "Paffer"
+version: 1.0.0
+doi: 10.5281/zenodo.21845556
+date-released: 2026-08-08
+url: "https://github.com/marinamedeirosz/mapa-cc-mhn"
+repository-code: "https://github.com/marinamedeirosz/mapa-cc-mhn"
+license: MIT
+abstract: >-
+  Aplicação web de acesso livre que transforma registros de uma coleção
+  carcinológica em visualizações espaciais. A partir de uma planilha de
+  tombamento, posiciona as ocorrências por coordenadas ou localidade,
+  agrega lotes, famílias e espécies por município de Alagoas e gera
+  mapas coropléticos com escala de cores, além de filtros, estatísticas
+  e exportação em PNG e CSV.
+keywords:
+  - coleção carcinológica
+  - carcinologia
+  - biodiversidade
+  - georreferenciamento
+  - mapa coroplético
+  - Alagoas
+  - CELMM
