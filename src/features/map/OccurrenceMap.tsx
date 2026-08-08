@@ -36,7 +36,7 @@ import { HeatLayer } from './HeatLayer'
 import { MunicipalityChoroplethLayer } from './MunicipalityChoroplethLayer'
 
 const alagoasCenter: [number, number] = [-9.75, -35.85]
-const accentStorageKey = 'mapa-cc-mnh:municipality-accent-color'
+const accentStorageKey = 'mapa-cc-mhn:municipality-accent-color'
 const accentPresets = [
   { label: 'Roxo', color: defaultMunicipalityAccentColor },
   { label: 'Azul', color: '#0f4c81' },
