@@ -6,8 +6,8 @@ authors:
   - given-names: "Marina Medeiros Correia"
     name-particle: "de"
     family-names: "Paffer"
-version: 1.0.0
-doi: 10.5281/zenodo.21845556
+version: 1.0.1
+doi: 10.5281/zenodo.21845555
 date-released: 2026-08-08
 url: "https://github.com/marinamedeirosz/mapa-cc-mhn"
 repository-code: "https://github.com/marinamedeirosz/mapa-cc-mhn"
