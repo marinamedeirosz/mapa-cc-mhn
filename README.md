@@ -1,8 +1,8 @@
-# Mapa CC MNH
+# Mapa CC MHN
 
 Facilitador para visualização da representatividade espacial de coleções carcinológicas.
 
-O **Mapa CC MNH** ajuda a transformar registros de uma coleção carcinológica em uma leitura espacial clara. A partir de uma planilha, o sistema organiza os dados, posiciona as ocorrências no mapa e permite observar onde a coleção está mais ou menos representada.
+O **Mapa CC MHN** ajuda a transformar registros de uma coleção carcinológica em uma leitura espacial clara. A partir de uma planilha, o sistema organiza os dados, posiciona as ocorrências no mapa e permite observar onde a coleção está mais ou menos representada.
 
 O projeto foi pensado para apoiar pesquisadores, curadores e demais pessoas interessadas na coleção, sem exigir conhecimento técnico em programação ou geoprocessamento. Em vez de analisar manualmente muitas linhas de uma planilha, a pessoa usuária pode importar os dados e explorar mapas, filtros, estatísticas e tabelas interativas.
 
