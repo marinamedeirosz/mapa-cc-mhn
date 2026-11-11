@@ -1,4 +1,4 @@
-import { resolveLocalCoordinates } from '@/data/localCoordinates'
+import { isCelmmLocal, resolveLocalCoordinates } from '@/data/localCoordinates'
 import { normalizeText } from '@/lib/text'
 import type { OccurrenceRecord } from '@/types'
 
@@ -118,7 +118,7 @@ export function aggregateByMunicipality(
   const marineRecords: OccurrenceRecord[] = []
 
   for (const record of records) {
-    if (hasExplicitCelmm(record.local)) {
+    if (isCelmmLocal(record.local)) {
       let added = false
 
       for (const municipality of celmmMunicipalities) {
@@ -153,11 +153,6 @@ export function aggregateByMunicipality(
     }
 
     const localResolution = resolveLocalCoordinates(record.local)
-
-    if (localResolution?.isCelmm) {
-      unresolvedRecords.push(record)
-      continue
-    }
 
     if (localResolution?.municipality) {
       const feature = municipalitiesByName.get(normalizeText(localResolution.municipality))
@@ -345,12 +340,6 @@ function getGroupIdentity(
   const normalized = normalizeText(value)
 
   return normalized ? { key: `${grouping}:${normalized}`, label: value } : null
-}
-
-function hasExplicitCelmm(local: string): boolean {
-  const normalizedLocal = normalizeText(local)
-
-  return ['celmm', 'mundau', 'manguaba'].some((term) => normalizedLocal.includes(term))
 }
 
 export const defaultMunicipalityAccentColor = '#5b0633'
