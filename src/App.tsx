@@ -23,7 +23,7 @@ import {
   buildFilterOptions,
   initialFilters,
 } from '@/lib/filtering'
-import { buildStats } from '@/lib/stats'
+import { buildStats, countByYear } from '@/lib/stats'
 import { normalizeText } from '@/lib/text'
 import type {
   Filters,
@@ -107,13 +107,14 @@ function App() {
     [filteredRecords, state.filters.quickSearch],
   )
   const stats = useMemo(() => buildStats(filteredRecords), [filteredRecords])
-  const undatedOutsidePeriod = useMemo(
-    () =>
-      state.filters.dateStart || state.filters.dateEnd
-        ? applyFilters(state.records, { ...state.filters, dateStart: '', dateEnd: '' }).filter((record) => !record.date).length
-        : 0,
+  // A linha do tempo e o aviso de lotes sem data olham os demais filtros, mas não o período.
+  const recordsIgnoringPeriod = useMemo(
+    () => applyFilters(state.records, { ...state.filters, dateStart: '', dateEnd: '' }),
     [state.records, state.filters],
   )
+  const years = useMemo(() => countByYear(recordsIgnoringPeriod), [recordsIgnoringPeriod])
+  const undatedRecords = recordsIgnoringPeriod.filter((record) => !record.date).length
+  const undatedOutsidePeriod = state.filters.dateStart || state.filters.dateEnd ? undatedRecords : 0
   const positionedCount = filteredRecords.filter((record) => record.positionSource !== 'unresolved').length
 
   return (
@@ -175,6 +176,9 @@ function App() {
             onSelect={(key, label) =>
               dispatch({ type: 'filters:update', filters: toggleFilterValue(state.filters, key, label) })
             }
+            years={years}
+            undatedRecords={undatedRecords}
+            onSelectYear={(year) => dispatch({ type: 'filters:update', filters: toggleYear(state.filters, year) })}
           />
           <ResultsTable
             records={tableRecords}
@@ -275,6 +279,14 @@ function toggleFilterValue(filters: Filters, key: DistributionFilterKey, label: 
     ...filters,
     [key]: isSelected ? current.filter((value) => normalizeText(value) !== normalized) : [...current, label],
   }
+}
+
+function toggleYear(filters: Filters, year: number): Filters {
+  const dateStart = `${year}-01-01`
+  const dateEnd = `${year}-12-31`
+  const isSelected = filters.dateStart === dateStart && filters.dateEnd === dateEnd
+
+  return isSelected ? { ...filters, dateStart: '', dateEnd: '' } : { ...filters, dateStart, dateEnd }
 }
 
 function formatIssueSeverity(severity: ImportIssue['severity']) {

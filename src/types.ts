@@ -87,3 +87,8 @@ export interface StatsSummary {
   bySpecies: DistributionItem[]
   byLocal: DistributionItem[]
 }
+
+export interface YearCount {
+  year: number
+  count: number
+}
