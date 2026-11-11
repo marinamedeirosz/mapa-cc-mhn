@@ -34,6 +34,7 @@ Registros associados ao **Complexo Estuarino-Lagunar Mundaú-Manguaba (CELMM)** 
 - Normalização de cabeçalhos e correção de textos importados.
 - Conversão automática de coordenadas para latitude e longitude.
 - Posicionamento por coordenadas ou por localidade conhecida.
+- Base de locais da curadoria: locais sem posição podem ser ligados a um município pela própria interface, com exportação e importação em JSON para compartilhar com a equipe.
 - Avisos para registros com data, coordenada ou local não reconhecidos.
 - Filtros por data, família, espécie, local e observação.
 - Estatísticas dos registros filtrados, com distribuições clicáveis e linha do tempo de lotes por ano.
