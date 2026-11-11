@@ -83,6 +83,16 @@ export async function parseSpreadsheetFile(file: File): Promise<ImportResult> {
   }
 }
 
+export function downloadSpreadsheetTemplate(): void {
+  const sheet = XLSX.utils.aoa_to_sheet([
+    requiredColumns.map((column) => columnLabels[column]),
+    ['CC00019', '12/04/2025', 'PENAEIDAE', 'Penaeus sp.', 'Maceió, AL', `9°34'22"S / 35°46'40"W`, 'Linha de exemplo: substitua pelos seus registros'],
+  ])
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, sheet, 'Registros')
+  XLSX.writeFile(workbook, 'modelo-mapa-cc-mhn.xlsx')
+}
+
 function buildColumnMap(firstRow: RawRow): Record<RequiredColumn, string> {
   const normalizedHeaders = Object.keys(firstRow).reduce<Record<string, string>>((acc, header) => {
     acc[normalizeHeader(header)] = header

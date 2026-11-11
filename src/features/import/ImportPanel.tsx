@@ -1,11 +1,11 @@
-import { AlertCircle, FileSpreadsheet, MapPin, Upload } from 'lucide-react'
+import { AlertCircle, FileDown, FileSpreadsheet, MapPin, Upload } from 'lucide-react'
 import type { ChangeEvent } from 'react'
 import { useRef } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { parseSpreadsheetFile } from '@/lib/importSpreadsheet'
+import { downloadSpreadsheetTemplate, parseSpreadsheetFile } from '@/lib/importSpreadsheet'
 import type { ImportResult, ImportSummary } from '@/types'
 
 interface ImportPanelProps {
@@ -63,6 +63,10 @@ export function ImportPanel({
         <Button type="button" onClick={() => inputRef.current?.click()} disabled={isImporting}>
           <Upload />
           {isImporting ? 'Importando...' : 'Importar .xlsx, .xls ou .csv'}
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={downloadSpreadsheetTemplate}>
+          <FileDown />
+          Baixar planilha modelo
         </Button>
 
         {summary ? (
