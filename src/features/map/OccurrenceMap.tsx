@@ -32,6 +32,7 @@ import type {
   MunicipalityGrouping,
   MunicipalityRecordRef,
 } from '@/lib/municipalityAggregation'
+import { downloadBlob } from '@/lib/utils'
 import type { MapMode, OccurrenceRecord, PositionSource } from '@/types'
 import { HeatLayer } from './HeatLayer'
 import { MunicipalityChoroplethLayer } from './MunicipalityChoroplethLayer'
@@ -95,7 +96,7 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
     setSelectedMetric(null)
   }
 
-  async function handleExportMunicipalityMap() {
+  async function handleExportMunicipalityMap(format: 'png' | 'svg') {
     if (!municipalityGeojson || !municipalityAggregation || isExportingMunicipalityMap) return
 
     setIsExportingMunicipalityMap(true)
@@ -106,7 +107,12 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
         showLabels: showMunicipalityLabels,
         accentColor,
       })
-      await downloadMunicipalityMapPng(svg, getMunicipalityMapFileName(grouping))
+      const fileName = getMunicipalityMapFileName(grouping, new Date(), format)
+      if (format === 'svg') {
+        downloadBlob(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), fileName)
+      } else {
+        await downloadMunicipalityMapPng(svg, fileName)
+      }
     } finally {
       setIsExportingMunicipalityMap(false)
     }
@@ -175,10 +181,23 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
               type='button'
               className='h-9 px-3'
               disabled={!canExportMunicipalityMap || isExportingMunicipalityMap}
-              onClick={handleExportMunicipalityMap}
+              onClick={() => handleExportMunicipalityMap('png')}
+              aria-label='Exportar mapa em PNG'
             >
               <Download />
-              {isExportingMunicipalityMap ? 'Exportando...' : 'Exportar mapa'}
+              {isExportingMunicipalityMap ? 'Exportando...' : 'PNG'}
+            </Button>
+            <Button
+              type='button'
+              variant='outline'
+              className='h-9 px-3'
+              disabled={!canExportMunicipalityMap || isExportingMunicipalityMap}
+              onClick={() => handleExportMunicipalityMap('svg')}
+              aria-label='Exportar mapa em SVG (vetorial)'
+              title='Vetorial, para artigos e pôsteres'
+            >
+              <Download />
+              SVG
             </Button>
           </div>
         ) : null}

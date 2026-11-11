@@ -25,6 +25,9 @@ describe('municipalityMapExport', () => {
     expect(getMunicipalityMapFileName('family', new Date(2026, 5, 7))).toBe(
       'mapa-municipios-alagoas-por-familias-2026-06-07.png',
     )
+    expect(getMunicipalityMapFileName('lot', new Date(2026, 5, 7), 'svg')).toBe(
+      'mapa-municipios-alagoas-por-lotes-2026-06-07.svg',
+    )
   })
 
   it('formats municipality labels with the total in parentheses', () => {

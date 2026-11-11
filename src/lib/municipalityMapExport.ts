@@ -64,13 +64,14 @@ const calloutColumnGap = 24
 export function getMunicipalityMapFileName(
   grouping: MunicipalityGrouping = 'lot',
   date = new Date(),
+  extension: 'png' | 'svg' = 'png',
 ): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   const groupingSlug = grouping === 'lot' ? 'lotes' : grouping === 'family' ? 'familias' : 'especies'
 
-  return `mapa-municipios-alagoas-por-${groupingSlug}-${year}-${month}-${day}.png`
+  return `mapa-municipios-alagoas-por-${groupingSlug}-${year}-${month}-${day}.${extension}`
 }
 
 export function formatMunicipalityLabel(name: string, total: number): string {
