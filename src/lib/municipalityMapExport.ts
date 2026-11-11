@@ -204,7 +204,7 @@ export async function downloadMunicipalityMapPng(svg: string, fileName: string):
     const context = canvas.getContext('2d')
 
     if (!context) {
-      throw new Error('Nao foi possivel preparar a imagem do mapa.')
+      throw new Error('Não foi possível preparar a imagem do mapa.')
     }
 
     context.fillStyle = '#f8faf8'
@@ -588,7 +588,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image()
     image.onload = () => resolve(image)
-    image.onerror = () => reject(new Error('Nao foi possivel gerar a imagem do mapa.'))
+    image.onerror = () => reject(new Error('Não foi possível gerar a imagem do mapa.'))
     image.src = url
   })
 }

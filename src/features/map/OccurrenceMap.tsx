@@ -59,6 +59,7 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
   const [selectedMetric, setSelectedMetric] = useState<MetricDetail | null>(null)
   const [showMunicipalityLabels, setShowMunicipalityLabels] = useState(true)
   const [isExportingMunicipalityMap, setIsExportingMunicipalityMap] = useState(false)
+  const [mapError, setMapError] = useState('')
   const [grouping, setGrouping] = useState<MunicipalityGrouping>('lot')
   const [accentColor, setAccentColor] = useState(loadStoredAccentColor)
   const positionedRecords = records.filter(
@@ -100,6 +101,7 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
     if (!municipalityGeojson || !municipalityAggregation || isExportingMunicipalityMap) return
 
     setIsExportingMunicipalityMap(true)
+    setMapError('')
     try {
       const svg = buildMunicipalityReportSvg({
         geojson: municipalityGeojson,
@@ -113,6 +115,8 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
       } else {
         await downloadMunicipalityMapPng(svg, fileName)
       }
+    } catch (error) {
+      setMapError(error instanceof Error ? error.message : 'Não foi possível exportar o mapa.')
     } finally {
       setIsExportingMunicipalityMap(false)
     }
@@ -130,14 +134,14 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
     let cancelled = false
     fetch('/data/alagoas-municipios.geojson')
       .then((response) => {
-        if (!response.ok) throw new Error('Não foi possível carregar a malha de Alagoas.')
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
         return response.json() as Promise<MunicipalityFeatureCollection>
       })
       .then((data) => {
         if (!cancelled) setMunicipalityGeojson(data)
       })
       .catch(() => {
-        if (!cancelled) setMunicipalityGeojson(null)
+        if (!cancelled) setMapError('Não foi possível carregar a malha municipal de Alagoas. Recarregue a página para tentar de novo.')
       })
     return () => {
       cancelled = true
@@ -244,7 +248,15 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
               ))
             : null}
         </MapContainer>
-        {mode === 'municipalities' ? (
+        {mode === 'municipalities' && mapError ? (
+          <div
+            role='alert'
+            className='absolute right-3 top-3 z-[500] max-w-sm rounded-md border border-destructive/40 bg-card/95 p-3 text-xs text-destructive shadow-md'
+          >
+            {mapError}
+          </div>
+        ) : null}
+        {mode === 'municipalities' && (municipalityAggregation || !mapError) ? (
           <MunicipalityLegend
             aggregation={municipalityAggregation}
             emptyMunicipalities={emptyMunicipalities}
