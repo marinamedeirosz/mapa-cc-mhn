@@ -65,11 +65,14 @@ export function OccurrenceMap({ records, mode, onModeChange, focus, onSelectMuni
   const [mapError, setMapError] = useState('')
   const [grouping, setGrouping] = useState<MunicipalityGrouping>('lot')
   const [accentColor, setAccentColor] = useState(loadStoredAccentColor)
-  const positionedRecords = records.filter(
-    (record) => record.latitude !== null && record.longitude !== null,
+  const positionedRecords = useMemo(
+    () => records.filter((record) => record.latitude !== null && record.longitude !== null),
+    [records],
   )
-  const heatPoints = positionedRecords.map(
-    (record) => [record.latitude!, record.longitude!, 1] as [number, number, number],
+  // Memorizado: um array novo a cada render faria a camada de calor ser recriada (abrir um diálogo, trocar a cor...).
+  const heatPoints = useMemo(
+    () => positionedRecords.map((record) => [record.latitude!, record.longitude!, 1] as [number, number, number]),
+    [positionedRecords],
   )
   const municipalityAggregation = useMemo(
     () =>
