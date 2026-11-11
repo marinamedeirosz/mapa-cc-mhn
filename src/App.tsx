@@ -95,6 +95,13 @@ function App() {
     [filteredRecords, state.filters.quickSearch],
   )
   const stats = useMemo(() => buildStats(filteredRecords), [filteredRecords])
+  const undatedOutsidePeriod = useMemo(
+    () =>
+      state.filters.dateStart || state.filters.dateEnd
+        ? applyFilters(state.records, { ...state.filters, dateStart: '', dateEnd: '' }).filter((record) => !record.date).length
+        : 0,
+    [state.records, state.filters],
+  )
   const positionedCount = filteredRecords.filter((record) => record.positionSource !== 'unresolved').length
 
   return (
@@ -129,6 +136,7 @@ function App() {
             filters={state.filters}
             options={filterOptions}
             resultCount={filteredRecords.length}
+            undatedOutsidePeriod={undatedOutsidePeriod}
             onChange={(filters) => dispatch({ type: 'filters:update', filters })}
             onClear={() => dispatch({ type: 'filters:clear' })}
           />

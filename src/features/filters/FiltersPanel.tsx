@@ -11,11 +11,19 @@ interface FiltersPanelProps {
   filters: Filters
   options: FilterOptions
   resultCount: number
+  undatedOutsidePeriod: number
   onChange: (filters: Filters) => void
   onClear: () => void
 }
 
-export function FiltersPanel({ filters, options, resultCount, onChange, onClear }: FiltersPanelProps) {
+export function FiltersPanel({
+  filters,
+  options,
+  resultCount,
+  undatedOutsidePeriod,
+  onChange,
+  onClear,
+}: FiltersPanelProps) {
   const active = hasActiveFilters(filters)
 
   return (
@@ -49,6 +57,11 @@ export function FiltersPanel({ filters, options, resultCount, onChange, onClear 
               aria-label="Data final"
             />
           </div>
+          {undatedOutsidePeriod > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {undatedOutsidePeriod} lote(s) sem data ficam fora do período.
+            </p>
+          ) : null}
         </div>
 
         <MultiSelectFilter
