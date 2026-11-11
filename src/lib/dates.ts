@@ -18,7 +18,7 @@ export function parseDateCell(value: unknown): Date | null {
   const brMatch = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/)
   if (brMatch) {
     const [, first, second, year] = brMatch
-    const fullYear = Number(year.length === 2 ? `20${year}` : year)
+    const fullYear = year.length === 2 ? expandTwoDigitYear(Number(year)) : Number(year)
     const brazilianDate = safeDate(fullYear, Number(second), Number(first))
 
     if (brazilianDate) {
@@ -76,6 +76,11 @@ function safeDate(year: number, month: number, day: number): Date | null {
     date.getUTCDate() === day
 
   return valid ? date : null
+}
+
+// Coletas não ficam no futuro: "98" é 1998 e "25" é 2025.
+function expandTwoDigitYear(year: number): number {
+  return year > new Date().getFullYear() % 100 ? 1900 + year : 2000 + year
 }
 
 function toDateOnly(date: Date): Date {
