@@ -392,6 +392,38 @@ function findFeatureForPoint(
   return findNearestFeature(geojson, latitude, longitude)
 }
 
+// Ponto garantidamente dentro do município (o centroide de um polígono côncavo pode cair fora dele).
+// Usa o maior anel externo: o centroide se estiver dentro; senão, o meio do maior trecho
+// interno da linha horizontal que passa por ele.
+export function municipalityInteriorPoint(feature: MunicipalityFeature): { latitude: number; longitude: number } {
+  const ring = featurePolygons(feature)
+    .map((polygon) => polygon[0])
+    .reduce((largest, current) => (current.length > largest.length ? current : largest))
+  const longitude = ring.reduce((sum, [x]) => sum + x, 0) / ring.length
+  const latitude = ring.reduce((sum, [, y]) => sum + y, 0) / ring.length
+
+  if (pointInRing(longitude, latitude, ring)) {
+    return { latitude, longitude }
+  }
+
+  const crossings: number[] = []
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i]
+    const [xj, yj] = ring[j]
+    if (yi > latitude !== yj > latitude) crossings.push(((xj - xi) * (latitude - yi)) / (yj - yi) + xi)
+  }
+  crossings.sort((a, b) => a - b)
+
+  let best = { start: crossings[0], end: crossings[1] }
+  for (let index = 2; index + 1 < crossings.length; index += 2) {
+    if (crossings[index + 1] - crossings[index] > best.end - best.start) {
+      best = { start: crossings[index], end: crossings[index + 1] }
+    }
+  }
+
+  return { latitude, longitude: (best.start + best.end) / 2 }
+}
+
 function featurePolygons(feature: MunicipalityFeature): number[][][][] {
   return feature.geometry.type === 'Polygon'
     ? [feature.geometry.coordinates as number[][][]]

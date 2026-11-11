@@ -4,6 +4,7 @@ import {
   celmmMunicipalities,
   defaultMunicipalityAccentColor,
   getMunicipalityColor,
+  municipalityInteriorPoint,
 } from './municipalityAggregation'
 import type { MunicipalityFeatureCollection } from './municipalityAggregation'
 import type { OccurrenceRecord } from '@/types'
@@ -76,6 +77,30 @@ describe('aggregateByMunicipality', () => {
     expect(aggregation.marineRecords.map((item) => item.code)).toEqual(['MAR'])
     expect(aggregation.unresolvedRecords.map((item) => item.code)).toEqual(['LONGE'])
     expect(aggregation.counts.size).toBe(0)
+  })
+
+  it('finds a point inside a concave municipality whose centroid falls outside', () => {
+    // Um "U": o centroide fica no vão do meio, fora do polígono.
+    const uShape = municipality('u', 'U', [
+      [
+        [0, 0],
+        [3, 0],
+        [3, 3],
+        [2, 3],
+        [2, 1],
+        [1, 1],
+        [1, 3],
+        [0, 3],
+        [0, 0],
+      ],
+    ])
+    const point = municipalityInteriorPoint(uShape)
+    const aggregation = aggregateByMunicipality(
+      [record({ local: '', latitude: point.latitude, longitude: point.longitude })],
+      { type: 'FeatureCollection', features: [uShape] },
+    )
+
+    expect(aggregation.counts.get('u')?.lotTotal).toBe(1)
   })
 
   it('distributes Mundaú and Manguaba aliases as CELMM', () => {
