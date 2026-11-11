@@ -1,4 +1,4 @@
-import { AlertCircle, FileDown, FileSpreadsheet, MapPin, Trash2, Upload } from 'lucide-react'
+import { AlertCircle, FileDown, FileSpreadsheet, MapPin, MapPinPlus, Trash2, Upload } from 'lucide-react'
 import type { ChangeEvent } from 'react'
 import { useEffect, useEffectEvent, useRef } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -19,6 +19,8 @@ interface ImportPanelProps {
   onImportSuccess: (result: ImportResult) => void
   onImportError: (message: string) => void
   onDiscard: () => void
+  localMappingsCount: number
+  onOpenLocals: () => void
 }
 
 export function ImportPanel({
@@ -29,6 +31,8 @@ export function ImportPanel({
   onImportSuccess,
   onImportError,
   onDiscard,
+  localMappingsCount,
+  onOpenLocals,
 }: ImportPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<File | null>(null)
@@ -131,6 +135,12 @@ export function ImportPanel({
               <ImportMetric label="Por local" value={summary.fromLocal} />
               <ImportMetric label="Sem posição" value={summary.unresolved} tone={summary.unresolved > 0 ? 'warning' : 'default'} />
             </div>
+            {summary.unresolved > 0 || localMappingsCount > 0 ? (
+              <Button type="button" variant="outline" size="sm" onClick={onOpenLocals}>
+                <MapPinPlus />
+                {summary.unresolved > 0 ? `Resolver locais sem posição (${summary.unresolved} lote(s))` : 'Locais definidos pela curadoria'}
+              </Button>
+            ) : null}
             <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>Salva só neste navegador, para não se perder ao recarregar.</span>
               <Button type="button" variant="ghost" size="sm" onClick={handleDiscard}>

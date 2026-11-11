@@ -1,5 +1,5 @@
 import { AlertTriangle, Database, MapPinned } from 'lucide-react'
-import { useMemo, useReducer, useState } from 'react'
+import { useEffect, useMemo, useReducer, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -14,7 +14,9 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FiltersPanel } from '@/features/filters/FiltersPanel'
 import { ImportPanel } from '@/features/import/ImportPanel'
+import { LocalMappingsDialog } from '@/features/locals/LocalMappingsDialog'
 import { OccurrenceMap } from '@/features/map/OccurrenceMap'
+import { useMunicipalityGeojson } from '@/features/map/useMunicipalityGeojson'
 import { ResultsTable } from '@/features/results/ResultsTable'
 import { StatsPanel, type DistributionFilterKey } from '@/features/stats/StatsPanel'
 import { WormsPanel } from '@/features/taxonomy/WormsPanel'
@@ -24,6 +26,7 @@ import {
   buildFilterOptions,
   initialFilters,
 } from '@/lib/filtering'
+import { applyLocalMappings, loadLocalMappings, saveLocalMappings, type LocalMapping } from '@/lib/localMappings'
 import { buildStats, countByYear } from '@/lib/stats'
 import { normalizeText } from '@/lib/text'
 import type {
@@ -98,10 +101,23 @@ function reducer(state: AppState, action: AppAction): AppState {
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState)
   const [focus, setFocus] = useState<RecordFocus | null>(null)
-  const filterOptions = useMemo(() => buildFilterOptions(state.records), [state.records])
+  const [localMappings, setLocalMappings] = useState<LocalMapping[]>(loadLocalMappings)
+  const [isLocalsOpen, setIsLocalsOpen] = useState(false)
+  const { geojson, error: geojsonError } = useMunicipalityGeojson()
+  // Locais definidos pela curadoria posicionam lotes que a planilha e a base fixa não resolveram.
+  const imported = useMemo(
+    () => (state.summary ? applyLocalMappings({ records: state.records, summary: state.summary }, localMappings) : null),
+    [state.records, state.summary, localMappings],
+  )
+  const records = imported?.records ?? state.records
+  const summary = imported?.summary ?? null
+
+  useEffect(() => saveLocalMappings(localMappings), [localMappings])
+
+  const filterOptions = useMemo(() => buildFilterOptions(records), [records])
   const filteredRecords = useMemo(
-    () => applyFilters(state.records, state.filters),
-    [state.records, state.filters],
+    () => applyFilters(records, state.filters),
+    [records, state.filters],
   )
   const tableRecords = useMemo(
     () => applyQuickSearch(filteredRecords, state.filters.quickSearch),
@@ -110,8 +126,8 @@ function App() {
   const stats = useMemo(() => buildStats(filteredRecords), [filteredRecords])
   // A linha do tempo e o aviso de lotes sem data olham os demais filtros, mas não o período.
   const recordsIgnoringPeriod = useMemo(
-    () => applyFilters(state.records, { ...state.filters, dateStart: '', dateEnd: '' }),
-    [state.records, state.filters],
+    () => applyFilters(records, { ...state.filters, dateStart: '', dateEnd: '' }),
+    [records, state.filters],
   )
   const years = useMemo(() => countByYear(recordsIgnoringPeriod), [recordsIgnoringPeriod])
   const undatedRecords = recordsIgnoringPeriod.filter((record) => !record.date).length
@@ -130,7 +146,7 @@ function App() {
             <h1 className="text-2xl font-semibold tracking-normal">Mapa CC MHN</h1>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary">{state.records.length} registros importados</Badge>
+            <Badge variant="secondary">{records.length} registros importados</Badge>
             <Badge variant="outline">{positionedCount} no mapa</Badge>
           </div>
         </div>
@@ -141,11 +157,21 @@ function App() {
           <ImportPanel
             isImporting={state.isImporting}
             importError={state.importError}
-            summary={state.summary}
+            summary={summary}
             onImportStart={() => dispatch({ type: 'import:start' })}
             onImportSuccess={(result) => dispatch({ type: 'import:success', result })}
             onImportError={(message) => dispatch({ type: 'import:error', message })}
             onDiscard={() => dispatch({ type: 'import:clear' })}
+            localMappingsCount={localMappings.length}
+            onOpenLocals={() => setIsLocalsOpen(true)}
+          />
+          <LocalMappingsDialog
+            open={isLocalsOpen}
+            onOpenChange={setIsLocalsOpen}
+            records={records}
+            mappings={localMappings}
+            onChange={setLocalMappings}
+            geojson={geojson}
           />
           <FiltersPanel
             filters={state.filters}
@@ -158,15 +184,17 @@ function App() {
         </aside>
 
         <section className="grid min-w-0 gap-4">
-          {state.records.length === 0 ? <EmptyState /> : null}
+          {records.length === 0 ? <EmptyState /> : null}
 
-          {state.summary?.issues.length ? <ImportIssuesDialog issues={state.summary.issues} /> : null}
+          {summary?.issues.length ? <ImportIssuesDialog issues={summary.issues} /> : null}
 
           <OccurrenceMap
             records={filteredRecords}
             mode={state.mapMode}
             onModeChange={(mapMode) => dispatch({ type: 'mapMode:set', mapMode })}
             focus={focus}
+            municipalityGeojson={geojson}
+            geojsonError={geojsonError}
             onSelectMunicipality={(mapSelection) =>
               dispatch({ type: 'filters:update', filters: { ...state.filters, mapSelection } })
             }
@@ -181,7 +209,7 @@ function App() {
             undatedRecords={undatedRecords}
             onSelectYear={(year) => dispatch({ type: 'filters:update', filters: toggleYear(state.filters, year) })}
           />
-          <WormsPanel records={state.records} />
+          <WormsPanel records={records} />
           <ResultsTable
             records={tableRecords}
             quickSearch={state.filters.quickSearch}

@@ -52,17 +52,26 @@ interface OccurrenceMapProps {
   onModeChange: (mode: MapMode) => void
   focus: RecordFocus | null
   onSelectMunicipality: (selection: MapSelection) => void
+  municipalityGeojson: MunicipalityFeatureCollection | null
+  geojsonError: string
 }
 
-export function OccurrenceMap({ records, mode, onModeChange, focus, onSelectMunicipality }: OccurrenceMapProps) {
+export function OccurrenceMap({
+  records,
+  mode,
+  onModeChange,
+  focus,
+  onSelectMunicipality,
+  municipalityGeojson,
+  geojsonError,
+}: OccurrenceMapProps) {
   const cardRef = useRef<HTMLDivElement>(null)
-  const [municipalityGeojson, setMunicipalityGeojson] =
-    useState<MunicipalityFeatureCollection | null>(null)
   const [selectedMunicipalityId, setSelectedMunicipalityId] = useState<string | null>(null)
   const [selectedMetric, setSelectedMetric] = useState<MetricDetail | null>(null)
   const [showMunicipalityLabels, setShowMunicipalityLabels] = useState(true)
   const [isExportingMunicipalityMap, setIsExportingMunicipalityMap] = useState(false)
-  const [mapError, setMapError] = useState('')
+  const [exportError, setExportError] = useState('')
+  const mapError = geojsonError || exportError
   const [grouping, setGrouping] = useState<MunicipalityGrouping>('lot')
   const [accentColor, setAccentColor] = useState(loadStoredAccentColor)
   const positionedRecords = useMemo(
@@ -107,7 +116,7 @@ export function OccurrenceMap({ records, mode, onModeChange, focus, onSelectMuni
     if (!municipalityGeojson || !municipalityAggregation || isExportingMunicipalityMap) return
 
     setIsExportingMunicipalityMap(true)
-    setMapError('')
+    setExportError('')
     try {
       const svg = buildMunicipalityReportSvg({
         geojson: municipalityGeojson,
@@ -122,7 +131,7 @@ export function OccurrenceMap({ records, mode, onModeChange, focus, onSelectMuni
         await downloadMunicipalityMapPng(svg, fileName)
       }
     } catch (error) {
-      setMapError(error instanceof Error ? error.message : 'Não foi possível exportar o mapa.')
+      setExportError(error instanceof Error ? error.message : 'Não foi possível exportar o mapa.')
     } finally {
       setIsExportingMunicipalityMap(false)
     }
@@ -139,24 +148,6 @@ export function OccurrenceMap({ records, mode, onModeChange, focus, onSelectMuni
       // O mapa continua funcional quando o navegador bloqueia armazenamento local.
     }
   }, [accentColor])
-
-  useEffect(() => {
-    let cancelled = false
-    fetch(`${import.meta.env.BASE_URL}data/alagoas-municipios.geojson`)
-      .then((response) => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`)
-        return response.json() as Promise<MunicipalityFeatureCollection>
-      })
-      .then((data) => {
-        if (!cancelled) setMunicipalityGeojson(data)
-      })
-      .catch(() => {
-        if (!cancelled) setMapError('Não foi possível carregar a malha municipal de Alagoas. Recarregue a página para tentar de novo.')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   return (
     <Card ref={cardRef} className='min-h-[460px] scroll-mt-4 overflow-hidden'>
