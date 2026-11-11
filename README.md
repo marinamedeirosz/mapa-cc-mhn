@@ -8,7 +8,7 @@ O projeto foi pensado para apoiar pesquisadores, curadores e demais pessoas inte
 
 ## Como o projeto funciona
 
-A aplicação roda no navegador e faz a leitura da planilha localmente. Ao importar um arquivo `.xlsx`, `.xls` ou `.csv`, o sistema lê a primeira aba, identifica as colunas esperadas e transforma cada linha em um registro da coleção.
+A aplicação roda no navegador e faz a leitura da planilha localmente. Ao importar um arquivo `.xlsx`, `.xls` ou `.csv`, o sistema lê a primeira aba que tem as colunas esperadas (outra aba pode ser escolhida depois), identifica as colunas esperadas e transforma cada linha em um registro da coleção.
 
 Depois da importação, cada registro passa por uma etapa de interpretação espacial:
 
@@ -29,19 +29,22 @@ Registros associados ao **Complexo Estuarino-Lagunar Mundaú-Manguaba (CELMM)** 
 ## Funcionalidades
 
 - Importação local de planilhas `.xlsx`, `.xls` e `.csv`.
-- Leitura da primeira aba da planilha.
+- Escolha da aba da planilha, começando pela primeira com as colunas esperadas.
+- Planilha modelo para download e planilha importada mantida no navegador ao recarregar.
 - Normalização de cabeçalhos e correção de textos importados.
 - Conversão automática de coordenadas para latitude e longitude.
 - Posicionamento por coordenadas ou por localidade conhecida.
 - Avisos para registros com data, coordenada ou local não reconhecidos.
 - Filtros por data, família, espécie, local e observação.
-- Estatísticas dos registros filtrados.
-- Tabela com ordenação, paginação, busca rápida e exportação CSV.
-- Mapa de pontos para visualizar concentração de ocorrências.
+- Estatísticas dos registros filtrados, com distribuições clicáveis e linha do tempo de lotes por ano.
+- Tabela com ordenação, paginação, busca rápida, botão para ver o lote no mapa e exportação CSV ou Darwin Core.
+- Mapa de pontos para visualizar concentração de ocorrências e aba com os lotes individuais.
 - Mapa municipal de Alagoas agrupado por lotes, famílias ou espécies.
 - Cor de destaque do mapa configurável por paletas ou seletor personalizado.
 - Detalhamento dos agrupadores e lotes ao clicar em municípios ou métricas.
-- Exportação do mapa municipal em PNG com o agrupador e a cor selecionados.
+- Lista de municípios sem registros, lotes marinhos separados e filtro pelo município clicado.
+- Exportação do mapa municipal em PNG ou SVG com o agrupador e a cor selecionados.
+- Conferência opcional dos nomes de espécies no WoRMS (World Register of Marine Species).
 
 ## Estrutura esperada da planilha
 
