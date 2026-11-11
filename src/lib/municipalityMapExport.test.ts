@@ -202,6 +202,23 @@ describe('municipalityMapExport', () => {
     expect(svg).not.toContain('Top municipios')
   })
 
+  it('draws marine lots as points and counts the ones outside the map', () => {
+    const svg = buildMunicipalityReportSvg({
+      geojson,
+      aggregation: {
+        ...aggregationWithCounts([['a', 'Maceio', 1]]),
+        marineRecords: [
+          { latitude: -9, longitude: -35 },
+          { latitude: -9, longitude: -20 },
+        ] as MunicipalityAggregation['marineRecords'],
+      },
+      showLabels: false,
+    })
+
+    expect(svg.match(/<circle/g)).toHaveLength(2)
+    expect(svg).toContain('Lotes marinhos: 2 (1 fora do recorte)')
+  })
+
   it('uses the selected accent color in the exported map', () => {
     const svg = buildMunicipalityReportSvg({
       geojson,

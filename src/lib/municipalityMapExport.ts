@@ -181,6 +181,7 @@ export function buildMunicipalityReportSvg({
         balanceCallouts: true,
       })
     : []
+  const marine = marineToSvg(aggregation, projection, getMunicipalityColor(1, 1, accentColor))
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="100%" height="100%" fill="#f8faf8"/>
@@ -189,7 +190,28 @@ export function buildMunicipalityReportSvg({
     ${geojson.features.map((feature) => featureToSvg(feature, aggregation, projection, accentColor)).join('\n    ')}
   </g>
   ${labels.map(labelToSvg).join('\n  ')}
+  ${marine}
 </svg>`
+}
+
+// Lotes marinhos viram pontos; os que caem fora do recorte do mapa só entram na contagem da legenda.
+function marineToSvg(aggregation: MunicipalityAggregation, projection: SvgProjection, color: string): string {
+  const total = aggregation.marineRecords.length
+  if (total === 0) return ''
+
+  const points = aggregation.marineRecords
+    .map((record) => projection.project(record.latitude!, record.longitude!))
+    .filter(({ x, y }) => x >= mapX && x <= mapX + mapWidth && y >= mapY && y <= mapY + mapHeight)
+  const outside = total - points.length
+  const legendY = mapY + mapHeight - 20
+
+  return [
+    ...points.map(({ x, y }) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6" fill="${color}" stroke="#ffffff" stroke-width="2"/>`),
+    `<circle cx="${mapX + 22}" cy="${legendY - 4}" r="6" fill="${color}" stroke="#ffffff" stroke-width="2"/>`,
+    `<text x="${mapX + 34}" y="${legendY}" font-family="Inter, Arial, sans-serif" font-size="13" fill="#172021">${escapeXml(
+      `Lotes marinhos: ${total}${outside > 0 ? ` (${outside} fora do recorte)` : ''}`,
+    )}</text>`,
+  ].join('\n  ')
 }
 
 export async function downloadMunicipalityMapPng(svg: string, fileName: string): Promise<void> {
