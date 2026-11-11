@@ -17,6 +17,7 @@ import { ImportPanel } from '@/features/import/ImportPanel'
 import { OccurrenceMap } from '@/features/map/OccurrenceMap'
 import { ResultsTable } from '@/features/results/ResultsTable'
 import { StatsPanel, type DistributionFilterKey } from '@/features/stats/StatsPanel'
+import { WormsPanel } from '@/features/taxonomy/WormsPanel'
 import {
   applyFilters,
   applyQuickSearch,
@@ -180,6 +181,7 @@ function App() {
             undatedRecords={undatedRecords}
             onSelectYear={(year) => dispatch({ type: 'filters:update', filters: toggleYear(state.filters, year) })}
           />
+          <WormsPanel records={state.records} />
           <ResultsTable
             records={tableRecords}
             quickSearch={state.filters.quickSearch}
