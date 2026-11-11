@@ -30,6 +30,11 @@ export interface OccurrenceRecord {
   importIssues: ImportIssue[]
 }
 
+export interface RecordFocus {
+  record: OccurrenceRecord
+  requestedAt: number
+}
+
 export interface ImportSummary {
   fileName: string
   sheetName: string

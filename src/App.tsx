@@ -1,5 +1,5 @@
 import { AlertTriangle, Database, MapPinned } from 'lucide-react'
-import { useMemo, useReducer } from 'react'
+import { useMemo, useReducer, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -25,7 +25,15 @@ import {
 } from '@/lib/filtering'
 import { buildStats } from '@/lib/stats'
 import { normalizeText } from '@/lib/text'
-import type { Filters, ImportIssue, ImportResult, ImportSummary, MapMode, OccurrenceRecord } from '@/types'
+import type {
+  Filters,
+  ImportIssue,
+  ImportResult,
+  ImportSummary,
+  MapMode,
+  OccurrenceRecord,
+  RecordFocus,
+} from '@/types'
 
 interface AppState {
   records: OccurrenceRecord[]
@@ -88,6 +96,7 @@ function reducer(state: AppState, action: AppAction): AppState {
 
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState)
+  const [focus, setFocus] = useState<RecordFocus | null>(null)
   const filterOptions = useMemo(() => buildFilterOptions(state.records), [state.records])
   const filteredRecords = useMemo(
     () => applyFilters(state.records, state.filters),
@@ -155,6 +164,7 @@ function App() {
             records={filteredRecords}
             mode={state.mapMode}
             onModeChange={(mapMode) => dispatch({ type: 'mapMode:set', mapMode })}
+            focus={focus}
           />
           <StatsPanel
             stats={stats}
@@ -167,6 +177,7 @@ function App() {
             records={tableRecords}
             quickSearch={state.filters.quickSearch}
             onQuickSearchChange={(quickSearch) => dispatch({ type: 'quickSearch:set', quickSearch })}
+            onLocate={(record) => setFocus({ record, requestedAt: Date.now() })}
           />
         </section>
       </div>

@@ -1,7 +1,7 @@
 import L from 'leaflet'
 import { Download, Layers, Map as MapIcon, MapPin, MapPinned, Palette, RotateCcw, Tags } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { CircleMarker, MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -33,7 +33,7 @@ import type {
   MunicipalityRecordRef,
 } from '@/lib/municipalityAggregation'
 import { downloadBlob } from '@/lib/utils'
-import type { MapMode, OccurrenceRecord } from '@/types'
+import type { MapMode, OccurrenceRecord, RecordFocus } from '@/types'
 import { HeatLayer } from './HeatLayer'
 import { MunicipalityChoroplethLayer } from './MunicipalityChoroplethLayer'
 
@@ -50,9 +50,11 @@ interface OccurrenceMapProps {
   records: OccurrenceRecord[]
   mode: MapMode
   onModeChange: (mode: MapMode) => void
+  focus: RecordFocus | null
 }
 
-export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProps) {
+export function OccurrenceMap({ records, mode, onModeChange, focus }: OccurrenceMapProps) {
+  const cardRef = useRef<HTMLDivElement>(null)
   const [municipalityGeojson, setMunicipalityGeojson] =
     useState<MunicipalityFeatureCollection | null>(null)
   const [selectedMunicipalityId, setSelectedMunicipalityId] = useState<string | null>(null)
@@ -123,6 +125,10 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
   }
 
   useEffect(() => {
+    if (focus) cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [focus])
+
+  useEffect(() => {
     try {
       localStorage.setItem(accentStorageKey, accentColor)
     } catch {
@@ -149,7 +155,7 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
   }, [])
 
   return (
-    <Card className='min-h-[460px] overflow-hidden'>
+    <Card ref={cardRef} className='min-h-[460px] scroll-mt-4 overflow-hidden'>
       <CardHeader className='flex flex-row flex-wrap items-center justify-between gap-3 pb-3'>
         <CardTitle className='flex items-center gap-2 text-base'>
           <MapPinned className='size-4' />
@@ -254,6 +260,7 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
                 </Marker>
               ))
             : null}
+          <FocusedRecord focus={focus} />
         </MapContainer>
         {mode === 'markers' ? (
           <div className='pointer-events-none absolute bottom-3 left-3 z-[500] grid gap-1 rounded-md border bg-card/95 p-3 text-xs shadow-md backdrop-blur'>
@@ -776,6 +783,32 @@ function uniqueRecords(groups: MunicipalityGroup[]): OccurrenceRecord[] {
     for (const record of group.records) records.set(record.id, record)
   }
   return Array.from(records.values())
+}
+
+function FocusedRecord({ focus }: { focus: RecordFocus | null }) {
+  const map = useMap()
+  const latitude = focus?.record.latitude
+  const longitude = focus?.record.longitude
+
+  useEffect(() => {
+    if (latitude != null && longitude != null) map.flyTo([latitude, longitude], Math.max(map.getZoom(), 12))
+  }, [focus, latitude, longitude, map])
+
+  if (!focus || latitude == null || longitude == null) return null
+
+  return (
+    <CircleMarker
+      center={[latitude, longitude]}
+      radius={14}
+      pathOptions={{ color: '#d1495b', weight: 3, fillOpacity: 0.15 }}
+      interactive={false}
+    >
+      <Tooltip permanent direction='top' offset={[0, -14]}>
+        {focus.record.code || 'Sem código'}
+        {focus.record.positionSource === 'local_fallback' ? ' (posição aproximada)' : ''}
+      </Tooltip>
+    </CircleMarker>
+  )
 }
 
 const coordinatesIcon = L.divIcon({ className: 'occurrence-marker', html: '', iconSize: [18, 18], iconAnchor: [9, 9] })

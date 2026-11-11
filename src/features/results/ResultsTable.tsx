@@ -6,7 +6,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { ArrowUpDown, ChevronLeft, ChevronRight, Download, Search } from 'lucide-react'
+import { ArrowUpDown, ChevronLeft, ChevronRight, Crosshair, Download, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,9 +21,10 @@ interface ResultsTableProps {
   records: OccurrenceRecord[]
   quickSearch: string
   onQuickSearchChange: (value: string) => void
+  onLocate: (record: OccurrenceRecord) => void
 }
 
-export function ResultsTable({ records, quickSearch, onQuickSearchChange }: ResultsTableProps) {
+export function ResultsTable({ records, quickSearch, onQuickSearchChange, onLocate }: ResultsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -31,6 +32,24 @@ export function ResultsTable({ records, quickSearch, onQuickSearchChange }: Resu
   })
   const columns = useMemo<ColumnDef<OccurrenceRecord>[]>(
     () => [
+      {
+        id: 'locate',
+        header: () => <span className="sr-only">Ver no mapa</span>,
+        cell: ({ row }) => (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7"
+            disabled={row.original.latitude === null}
+            onClick={() => onLocate(row.original)}
+            aria-label={`Ver ${row.original.code || 'lote'} no mapa`}
+            title={row.original.latitude === null ? 'Sem posição' : 'Ver no mapa'}
+          >
+            <Crosshair />
+          </Button>
+        ),
+      },
       {
         accessorKey: 'code',
         header: ({ column }) => <SortableHeader label="Código" onClick={() => column.toggleSorting()} />,
@@ -73,7 +92,7 @@ export function ResultsTable({ records, quickSearch, onQuickSearchChange }: Resu
         cell: ({ row }) => <span className="block min-w-56">{row.original.observation}</span>,
       },
     ],
-    [],
+    [onLocate],
   )
   const table = useReactTable({
     data: records,
