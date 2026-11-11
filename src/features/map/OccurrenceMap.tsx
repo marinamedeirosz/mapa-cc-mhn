@@ -15,6 +15,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   buildMunicipalityReportSvg,
   downloadMunicipalityMapPng,
+  getMunicipalityFeatureId,
   getMunicipalityMapFileName,
 } from '@/lib/municipalityMapExport'
 import {
@@ -77,6 +78,16 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
       ? municipalityAggregation.counts.get(selectedMunicipalityId) ?? null
       : null
   const canExportMunicipalityMap = Boolean(municipalityGeojson && municipalityAggregation)
+  const emptyMunicipalities = useMemo(
+    () =>
+      municipalityGeojson && municipalityAggregation
+        ? municipalityGeojson.features
+            .filter((feature) => !municipalityAggregation.counts.has(getMunicipalityFeatureId(feature)))
+            .map((feature) => feature.properties.name)
+            .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+        : [],
+    [municipalityAggregation, municipalityGeojson],
+  )
 
   function handleGroupingChange(value: MunicipalityGrouping) {
     setGrouping(value)
@@ -215,7 +226,11 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
             : null}
         </MapContainer>
         {mode === 'municipalities' ? (
-          <MunicipalityLegend aggregation={municipalityAggregation} onMetricClick={setSelectedMetric} />
+          <MunicipalityLegend
+            aggregation={municipalityAggregation}
+            emptyMunicipalities={emptyMunicipalities}
+            onMetricClick={setSelectedMetric}
+          />
         ) : null}
         <MunicipalityDetailDialog
           municipality={selectedMunicipality}
@@ -238,6 +253,7 @@ type MetricDetail =
   | { type: 'groups'; title: string; description: string; groups: MunicipalityGroup[] }
   | { type: 'assignments'; title: string; description: string; assignments: MunicipalityGroupAssignment[] }
   | { type: 'records'; title: string; description: string; records: OccurrenceRecord[] }
+  | { type: 'names'; title: string; description: string; names: string[] }
 
 function AccentColorPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
@@ -384,6 +400,14 @@ function MetricDetailDialog({
           grouping === 'lot' ? <RecordsTable records={uniqueRecords(detail.groups)} /> : <GroupedDetails groups={detail.groups} grouping={grouping} />
         ) : detail?.type === 'records' ? (
           <RecordsTable records={detail.records} />
+        ) : detail?.type === 'names' ? (
+          detail.names.length > 0 ? (
+            <ul className='max-h-[62svh] columns-2 gap-6 overflow-auto rounded-md border p-4 text-sm sm:columns-3'>
+              {detail.names.map((name) => <li key={name}>{name}</li>)}
+            </ul>
+          ) : (
+            <p className='rounded-md border p-4 text-sm text-muted-foreground'>Todos os municípios têm registros.</p>
+          )
         ) : null}
       </DialogContent>
     </Dialog>
@@ -551,9 +575,11 @@ function RecordRowsTable({
 
 function MunicipalityLegend({
   aggregation,
+  emptyMunicipalities,
   onMetricClick,
 }: {
   aggregation: MunicipalityAggregation | null
+  emptyMunicipalities: string[]
   onMetricClick: (detail: MetricDetail) => void
 }) {
   if (!aggregation) {
@@ -581,6 +607,16 @@ function MunicipalityLegend({
             title: 'Municípios coloridos',
             description: `Municípios com pelo menos uma ${groupLabel(aggregation.grouping, 1)}.`,
             municipalities: municipalityRows,
+          })}
+        />
+        <MetricButton
+          label='Sem registros'
+          value={emptyMunicipalities.length}
+          onClick={() => onMetricClick({
+            type: 'names',
+            title: 'Municípios sem registros',
+            description: 'Municípios de Alagoas sem nenhum lote na seleção atual: lacunas de representatividade da coleção.',
+            names: emptyMunicipalities,
           })}
         />
         <MetricButton
