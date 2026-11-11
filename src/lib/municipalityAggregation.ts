@@ -41,8 +41,6 @@ export interface MunicipalityCount {
   celmm: number
   total: number
   lotTotal: number
-  directLots: number
-  celmmLots: number
   missingGroupingLots: number
   records: MunicipalityRecordRef[]
   groups: MunicipalityGroup[]
@@ -51,11 +49,6 @@ export interface MunicipalityCount {
 export interface MunicipalityRecordRef {
   record: OccurrenceRecord
   source: 'direct' | 'celmm'
-}
-
-export interface MunicipalityAssignmentRef extends MunicipalityRecordRef {
-  municipalityId: string
-  municipalityName: string
 }
 
 export interface MunicipalityGroupAssignment {
@@ -75,22 +68,12 @@ export interface MunicipalityAggregation {
   celmmGroups: number
   totalAssignments: number
   unresolvedGroups: number
-  totalLots: number
-  lotsWithMunicipality: number
-  directLots: number
-  celmmLots: number
-  unresolvedLots: number
-  groups: MunicipalityGroup[]
   mappedGroups: MunicipalityGroup[]
   directGroupItems: MunicipalityGroup[]
   celmmGroupItems: MunicipalityGroup[]
   unresolvedGroupItems: MunicipalityGroup[]
   groupAssignments: MunicipalityGroupAssignment[]
   missingGroupingRecords: OccurrenceRecord[]
-  mappedRecords: OccurrenceRecord[]
-  directRecordRefs: MunicipalityRecordRef[]
-  celmmRecordRefs: MunicipalityRecordRef[]
-  assignmentRefs: MunicipalityAssignmentRef[]
   unresolvedRecords: OccurrenceRecord[]
   marineRecords: OccurrenceRecord[]
 }
@@ -166,10 +149,6 @@ export function aggregateByMunicipality(
   }
 
   const values = Array.from(counts.values())
-  const mappedRecords = new Map<string, OccurrenceRecord>()
-  const directRecords = new Map<string, MunicipalityRecordRef>()
-  const celmmRecords = new Map<string, MunicipalityRecordRef>()
-  const assignmentRefs: MunicipalityAssignmentRef[] = []
   const groupAssignments: MunicipalityGroupAssignment[] = []
 
   for (const item of values) {
@@ -178,8 +157,6 @@ export function aggregateByMunicipality(
     item.direct = item.groups.filter((group) => group.direct > 0).length
     item.celmm = item.groups.filter((group) => group.celmm > 0).length
     item.lotTotal = item.records.length
-    item.directLots = item.records.filter((ref) => ref.source === 'direct').length
-    item.celmmLots = item.records.filter((ref) => ref.source === 'celmm').length
     item.missingGroupingLots = item.records.filter(
       ({ record }) => !getGroupIdentity(record, grouping),
     ).length
@@ -190,22 +167,6 @@ export function aggregateByMunicipality(
         municipalityName: item.name,
         group,
       })
-    }
-
-    for (const recordRef of item.records) {
-      const { record, source } = recordRef
-      mappedRecords.set(record.id, record)
-      assignmentRefs.push({
-        ...recordRef,
-        municipalityId: item.id,
-        municipalityName: item.name,
-      })
-
-      if (source === 'direct') {
-        directRecords.set(record.id, recordRef)
-      } else {
-        celmmRecords.set(record.id, recordRef)
-      }
     }
   }
 
@@ -234,22 +195,12 @@ export function aggregateByMunicipality(
     celmmGroups: celmmGroupItems.length,
     totalAssignments: groupAssignments.length,
     unresolvedGroups: unresolvedGroupItems.length,
-    totalLots: records.length,
-    lotsWithMunicipality: mappedRecords.size,
-    directLots: directRecords.size,
-    celmmLots: celmmRecords.size,
-    unresolvedLots: unresolvedRecords.length,
-    groups,
     mappedGroups,
     directGroupItems,
     celmmGroupItems,
     unresolvedGroupItems,
     groupAssignments,
     missingGroupingRecords,
-    mappedRecords: Array.from(mappedRecords.values()),
-    directRecordRefs: Array.from(directRecords.values()),
-    celmmRecordRefs: Array.from(celmmRecords.values()),
-    assignmentRefs,
     unresolvedRecords,
     marineRecords,
   }
@@ -413,8 +364,6 @@ function increment(
       celmm: 0,
       total: 0,
       lotTotal: 0,
-      directLots: 0,
-      celmmLots: 0,
       missingGroupingLots: 0,
       records: [],
       groups: [],
