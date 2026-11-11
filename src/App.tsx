@@ -16,7 +16,7 @@ import { FiltersPanel } from '@/features/filters/FiltersPanel'
 import { ImportPanel } from '@/features/import/ImportPanel'
 import { OccurrenceMap } from '@/features/map/OccurrenceMap'
 import { ResultsTable } from '@/features/results/ResultsTable'
-import { StatsPanel } from '@/features/stats/StatsPanel'
+import { StatsPanel, type DistributionFilterKey } from '@/features/stats/StatsPanel'
 import {
   applyFilters,
   applyQuickSearch,
@@ -24,6 +24,7 @@ import {
   initialFilters,
 } from '@/lib/filtering'
 import { buildStats } from '@/lib/stats'
+import { normalizeText } from '@/lib/text'
 import type { Filters, ImportIssue, ImportResult, ImportSummary, MapMode, OccurrenceRecord } from '@/types'
 
 interface AppState {
@@ -143,7 +144,13 @@ function App() {
             mode={state.mapMode}
             onModeChange={(mapMode) => dispatch({ type: 'mapMode:set', mapMode })}
           />
-          <StatsPanel stats={stats} />
+          <StatsPanel
+            stats={stats}
+            filters={state.filters}
+            onSelect={(key, label) =>
+              dispatch({ type: 'filters:update', filters: toggleFilterValue(state.filters, key, label) })
+            }
+          />
           <ResultsTable
             records={tableRecords}
             quickSearch={state.filters.quickSearch}
@@ -231,6 +238,17 @@ function ImportIssuesDialog({ issues }: { issues: ImportIssue[] }) {
       </DialogContent>
     </Dialog>
   )
+}
+
+function toggleFilterValue(filters: Filters, key: DistributionFilterKey, label: string): Filters {
+  const normalized = normalizeText(label)
+  const current = filters[key]
+  const isSelected = current.some((value) => normalizeText(value) === normalized)
+
+  return {
+    ...filters,
+    [key]: isSelected ? current.filter((value) => normalizeText(value) !== normalized) : [...current, label],
+  }
 }
 
 function formatIssueSeverity(severity: ImportIssue['severity']) {
