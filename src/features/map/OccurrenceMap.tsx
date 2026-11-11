@@ -132,7 +132,7 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
 
   useEffect(() => {
     let cancelled = false
-    fetch('/data/alagoas-municipios.geojson')
+    fetch(`${import.meta.env.BASE_URL}data/alagoas-municipios.geojson`)
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         return response.json() as Promise<MunicipalityFeatureCollection>
