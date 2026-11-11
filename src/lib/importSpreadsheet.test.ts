@@ -35,6 +35,16 @@ describe('parseSpreadsheetFile', () => {
     expect(result.records.map((record) => record.rowNumber)).toEqual([2, 5])
   })
 
+  it('reads CSV values as text, keeping Brazilian dates and leading zeros', async () => {
+    const csv = `${headers.join(',')}\n007,10/05/2020,Família A,Espécie A,"Maceió, AL",,\n`
+    const file = new File([csv], 'teste.csv', { type: 'text/csv' })
+
+    const result = await parseSpreadsheetFile(file)
+
+    expect(result.records[0].code).toBe('007')
+    expect(result.records[0].dateText).toBe('10/05/2020')
+  })
+
   it('rejects spreadsheets with headers but no data rows', async () => {
     const file = workbookFile([
       headers,

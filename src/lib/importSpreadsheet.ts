@@ -25,6 +25,8 @@ export async function parseSpreadsheetFile(file: File): Promise<ImportResult> {
   const workbook = XLSX.read(await file.arrayBuffer(), {
     type: 'array',
     cellDates: true,
+    // Em CSV, mantém o texto: sem isso o SheetJS lê datas como mês/dia e apaga zeros de códigos.
+    raw: true,
   })
   const sheetName = workbook.SheetNames[0]
 
