@@ -48,10 +48,12 @@ export async function parseSpreadsheetFile(file: File): Promise<ImportResult> {
   const missingColumns = requiredColumns.filter((column) => !columnMap[column])
 
   if (missingColumns.length > 0) {
+    // SheetJS nomeia cabeçalhos vazios como __EMPTY.
+    const foundColumns = Object.keys(rows[0]).filter((header) => !header.startsWith('__EMPTY'))
     throw new Error(
       `Colunas obrigatórias ausentes: ${missingColumns
         .map((column) => columnLabels[column])
-        .join(', ')}.`,
+        .join(', ')}. Colunas encontradas: ${foundColumns.join(', ') || 'nenhuma'}.`,
     )
   }
 

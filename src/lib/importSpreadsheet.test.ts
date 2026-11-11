@@ -35,6 +35,17 @@ describe('parseSpreadsheetFile', () => {
     expect(result.records.map((record) => record.rowNumber)).toEqual([2, 5])
   })
 
+  it('lists the columns it found when a required column is missing', async () => {
+    const file = workbookFile([
+      ['Código', 'Data', 'Famiia', 'Espécie', 'Local', 'Coordenadas', 'Observação'],
+      ['001', '2026-06-01', 'Família A', 'Espécie A', 'Maceió, AL', '', ''],
+    ])
+
+    await expect(parseSpreadsheetFile(file)).rejects.toThrow(
+      'Colunas obrigatórias ausentes: Família. Colunas encontradas: Código, Data, Famiia, Espécie, Local, Coordenadas, Observação.',
+    )
+  })
+
   it('reads CSV values as text, keeping Brazilian dates and leading zeros', async () => {
     const csv = `${headers.join(',')}\n007,10/05/2020,Família A,Espécie A,"Maceió, AL",,\n`
     const file = new File([csv], 'teste.csv', { type: 'text/csv' })
