@@ -54,7 +54,8 @@ export async function parseSpreadsheetFile(file: File): Promise<ImportResult> {
   }
 
   const dataRows = rows
-    .map((row, index) => ({ row, rowNumber: index + 2 }))
+    // sheet_to_json pula linhas vazias; __rowNum__ (base 0) guarda a linha real da planilha.
+    .map((row) => ({ row, rowNumber: (row.__rowNum__ as number) + 1 }))
     .filter(({ row }) => rowHasData(row))
 
   if (dataRows.length === 0) {

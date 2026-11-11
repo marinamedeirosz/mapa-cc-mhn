@@ -21,6 +21,20 @@ describe('parseSpreadsheetFile', () => {
     expect(result.summary.totalRows).toBe(2)
   })
 
+  it('keeps real row numbers when the spreadsheet has fully empty rows', async () => {
+    const file = workbookFile([
+      headers,
+      ['001', '2026-06-01', 'Família A', 'Espécie A', 'Maceió, AL', '', ''],
+      [],
+      [],
+      ['002', '2026-06-02', 'Família B', 'Espécie B', 'Pilar, AL', '', ''],
+    ])
+
+    const result = await parseSpreadsheetFile(file)
+
+    expect(result.records.map((record) => record.rowNumber)).toEqual([2, 5])
+  })
+
   it('rejects spreadsheets with headers but no data rows', async () => {
     const file = workbookFile([
       headers,
