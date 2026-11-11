@@ -238,6 +238,18 @@ export function OccurrenceMap({ records, mode, onModeChange, focus, onSelectMuni
               showLabels={showMunicipalityLabels}
             />
           ) : null}
+          {mode === 'municipalities'
+            ? municipalityAggregation?.marineRecords.map((record) => (
+                <CircleMarker
+                  key={record.id}
+                  center={[record.latitude!, record.longitude!]}
+                  radius={5}
+                  pathOptions={{ color: '#ffffff', weight: 2, fillColor: accentColor, fillOpacity: 1 }}
+                >
+                  <Tooltip>{record.code || 'Sem código'} · marinho</Tooltip>
+                </CircleMarker>
+              ))
+            : null}
           {mode === 'markers'
             ? positionedRecords.map((record) => (
                 <Marker
@@ -713,6 +725,18 @@ function MunicipalityLegend({
             groups: aggregation.unresolvedGroupItems,
           })}
         />
+        {aggregation.marineRecords.length > 0 ? (
+          <MetricButton
+            label='Marinhos'
+            value={aggregation.marineRecords.length}
+            onClick={() => onMetricClick({
+              type: 'records',
+              title: 'Lotes marinhos',
+              description: 'Lotes com coordenadas no mar, a mais de 25 km da costa de Alagoas. Aparecem como pontos no mapa e não entram na contagem dos municípios.',
+              records: aggregation.marineRecords,
+            })}
+          />
+        ) : null}
         <MetricButton
           label='Diretos'
           value={aggregation.directGroups}

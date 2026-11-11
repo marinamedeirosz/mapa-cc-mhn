@@ -64,6 +64,20 @@ describe('aggregateByMunicipality', () => {
     expect(Array.from(aggregation.counts.values()).every((item) => item.records[0].source === 'celmm')).toBe(true)
   })
 
+  it('separates points far out at sea east of the state from unresolved points', () => {
+    const aggregation = aggregateByMunicipality(
+      [
+        record({ code: 'MAR', local: 'Maceió', latitude: -9.5, longitude: -33 }),
+        record({ code: 'LONGE', local: '', latitude: -20, longitude: -33 }),
+      ],
+      geojson,
+    )
+
+    expect(aggregation.marineRecords.map((item) => item.code)).toEqual(['MAR'])
+    expect(aggregation.unresolvedRecords.map((item) => item.code)).toEqual(['LONGE'])
+    expect(aggregation.counts.size).toBe(0)
+  })
+
   it('distributes Mundaú and Manguaba aliases as CELMM', () => {
     const aggregation = aggregateByMunicipality([record({ local: 'Lagoa Mundaú' })], geojson)
 

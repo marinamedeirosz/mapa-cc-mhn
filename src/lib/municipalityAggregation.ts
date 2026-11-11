@@ -92,6 +92,7 @@ export interface MunicipalityAggregation {
   celmmRecordRefs: MunicipalityRecordRef[]
   assignmentRefs: MunicipalityAssignmentRef[]
   unresolvedRecords: OccurrenceRecord[]
+  marineRecords: OccurrenceRecord[]
 }
 
 const maxNearestMunicipalityDistanceKm = 25
@@ -114,6 +115,7 @@ export function aggregateByMunicipality(
   const counts = new Map<string, MunicipalityCount>()
   const municipalitiesByName = buildMunicipalityNameMap(geojson)
   const unresolvedRecords: OccurrenceRecord[] = []
+  const marineRecords: OccurrenceRecord[] = []
 
   for (const record of records) {
     if (hasExplicitCelmm(record.local)) {
@@ -141,6 +143,12 @@ export function aggregateByMunicipality(
 
     if (featureByPoint) {
       increment(counts, featureByPoint, record, 'direct')
+      continue
+    }
+
+    // Coordenada da planilha vale mais que o nome do local: se cai no mar, é marinho.
+    if (record.latitude !== null && record.longitude !== null && geojson && isOffshore(geojson, record.latitude, record.longitude)) {
+      marineRecords.push(record)
       continue
     }
 
@@ -248,6 +256,7 @@ export function aggregateByMunicipality(
     celmmRecordRefs: Array.from(celmmRecords.values()),
     assignmentRefs,
     unresolvedRecords,
+    marineRecords,
   }
 }
 
@@ -441,15 +450,42 @@ function findFeatureForPoint(
   return findNearestFeature(geojson, latitude, longitude)
 }
 
+function featurePolygons(feature: MunicipalityFeature): number[][][][] {
+  return feature.geometry.type === 'Polygon'
+    ? [feature.geometry.coordinates as number[][][]]
+    : (feature.geometry.coordinates as number[][][][])
+}
+
+// No mar ao largo de Alagoas: na mesma latitude há terra do estado só a oeste.
+// Nessas latitudes o leste de Alagoas é só oceano; PE, SE e BA ficam ao norte, sul ou oeste.
+function isOffshore(geojson: MunicipalityFeatureCollection, latitude: number, longitude: number): boolean {
+  let landToWest = false
+
+  for (const feature of geojson.features) {
+    for (const polygon of featurePolygons(feature)) {
+      for (const ring of polygon) {
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+          const [xi, yi] = ring[i]
+          const [xj, yj] = ring[j]
+          if (yi > latitude === yj > latitude) continue
+
+          const crossingLongitude = ((xj - xi) * (latitude - yi)) / (yj - yi) + xi
+          if (crossingLongitude > longitude) return false
+          landToWest = true
+        }
+      }
+    }
+  }
+
+  return landToWest
+}
+
 function featureContainsPoint(
   feature: MunicipalityFeature,
   latitude: number,
   longitude: number,
 ): boolean {
-  const polygons =
-    feature.geometry.type === 'Polygon'
-      ? [feature.geometry.coordinates as number[][][]]
-      : (feature.geometry.coordinates as number[][][][])
+  const polygons = featurePolygons(feature)
 
   return polygons.some((polygon) => {
     const outerRing = polygon[0]
@@ -502,10 +538,7 @@ function distanceToFeatureKm(
   latitude: number,
   longitude: number,
 ): number {
-  const polygons =
-    feature.geometry.type === 'Polygon'
-      ? [feature.geometry.coordinates as number[][][]]
-      : (feature.geometry.coordinates as number[][][][])
+  const polygons = featurePolygons(feature)
 
   return polygons.reduce((featureMin, polygon) => {
     const ringMin = polygon.reduce((polygonMin, ring) => {

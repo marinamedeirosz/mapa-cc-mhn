@@ -263,6 +263,7 @@ function aggregationWithCounts(items: Array<[string, string, number]>): Municipa
     celmmRecordRefs: [],
     assignmentRefs: [],
     unresolvedRecords: [],
+    marineRecords: [],
   }
 }
 
