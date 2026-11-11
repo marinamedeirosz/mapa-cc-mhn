@@ -1,12 +1,8 @@
 import L from 'leaflet'
 import { useEffect, useMemo, useState } from 'react'
 import { GeoJSON, Marker, Polyline, useMap } from 'react-leaflet'
-import {
-  formatMunicipalityLabel,
-  getMunicipalityFeatureId,
-  selectMunicipalityLabels,
-} from '@/lib/municipalityMapExport'
-import { getMunicipalityColor } from '@/lib/municipalityAggregation'
+import { formatMunicipalityLabel, selectMunicipalityLabels } from '@/lib/municipalityMapExport'
+import { getMunicipalityColor, getMunicipalityFeatureId } from '@/lib/municipalityAggregation'
 import type {
   MunicipalityAggregation,
   MunicipalityFeature,

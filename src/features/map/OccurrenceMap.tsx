@@ -15,12 +15,12 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   buildMunicipalityReportSvg,
   downloadMunicipalityMapPng,
-  getMunicipalityFeatureId,
   getMunicipalityMapFileName,
 } from '@/lib/municipalityMapExport'
 import {
   aggregateByMunicipality,
   defaultMunicipalityAccentColor,
+  getMunicipalityFeatureId,
   isValidHexColor,
 } from '@/lib/municipalityAggregation'
 import type {

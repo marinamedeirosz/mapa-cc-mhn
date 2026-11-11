@@ -1,4 +1,4 @@
-import { getMunicipalityColor } from '@/lib/municipalityAggregation'
+import { getMunicipalityColor, getMunicipalityFeatureId } from '@/lib/municipalityAggregation'
 import type {
   MunicipalityAggregation,
   MunicipalityFeature,
@@ -219,10 +219,6 @@ export async function downloadMunicipalityMapPng(svg: string, fileName: string):
   } finally {
     URL.revokeObjectURL(url)
   }
-}
-
-export function getMunicipalityFeatureId(feature: MunicipalityFeature): string {
-  return feature.properties.id ?? feature.properties.codarea ?? feature.properties.name
 }
 
 function featureToSvg(

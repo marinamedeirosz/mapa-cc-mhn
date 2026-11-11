@@ -348,13 +348,17 @@ function buildMunicipalityNameMap(
   return map
 }
 
+export function getMunicipalityFeatureId(feature: MunicipalityFeature): string {
+  return feature.properties.id ?? feature.properties.codarea ?? feature.properties.name
+}
+
 function increment(
   counts: Map<string, MunicipalityCount>,
   feature: MunicipalityFeature,
   record: OccurrenceRecord,
   kind: 'direct' | 'celmm',
 ): void {
-  const id = feature.properties.id ?? feature.properties.codarea ?? feature.properties.name
+  const id = getMunicipalityFeatureId(feature)
   const existing =
     counts.get(id) ??
     ({
