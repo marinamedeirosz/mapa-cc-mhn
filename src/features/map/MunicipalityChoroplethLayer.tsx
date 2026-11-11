@@ -30,6 +30,16 @@ export function MunicipalityChoroplethLayer({
 }: MunicipalityChoroplethLayerProps) {
   const map = useMap()
   const [mapRevision, setMapRevision] = useState(0)
+  // Tooltip e clique só são recriados quando a key muda, então ela precisa refletir cada município.
+  const layerKey = useMemo(
+    () =>
+      [
+        aggregation.grouping,
+        accentColor,
+        ...Array.from(aggregation.counts.values(), (count) => `${count.id}:${count.total}:${count.lotTotal}:${count.missingGroupingLots}`),
+      ].join('|'),
+    [aggregation, accentColor],
+  )
 
   useEffect(() => {
     const bounds = L.geoJSON(geojson).getBounds()
@@ -78,7 +88,7 @@ export function MunicipalityChoroplethLayer({
   return (
     <>
       <GeoJSON
-        key={`${aggregation.grouping}-${aggregation.max}-${aggregation.totalAssignments}-${aggregation.unresolvedLots}-${accentColor}`}
+        key={layerKey}
         data={geojson}
         style={(feature) => {
           const municipalityFeature = feature as MunicipalityFeature
