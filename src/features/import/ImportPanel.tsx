@@ -5,6 +5,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
 import { downloadSpreadsheetTemplate, parseSpreadsheetFile } from '@/lib/importSpreadsheet'
 import { clearStoredSpreadsheet, loadStoredSpreadsheet, saveStoredSpreadsheet } from '@/lib/storedSpreadsheet'
 import type { ImportResult, ImportSummary } from '@/types'
@@ -29,13 +31,16 @@ export function ImportPanel({
   onDiscard,
 }: ImportPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const fileRef = useRef<File | null>(null)
 
-  async function importFile(file: File): Promise<boolean> {
+  async function importFile(file: File, sheetName?: string): Promise<boolean> {
     onImportStart()
 
     try {
-      onImportSuccess(await parseSpreadsheetFile(file))
-      await saveStoredSpreadsheet({ file })
+      const result = await parseSpreadsheetFile(file, sheetName)
+      fileRef.current = file
+      onImportSuccess(result)
+      await saveStoredSpreadsheet({ file, sheetName: result.summary.sheetName })
       return true
     } catch (error) {
       onImportError(error instanceof Error ? error.message : 'Não foi possível importar a planilha.')
@@ -46,7 +51,7 @@ export function ImportPanel({
   const restoreStoredSpreadsheet = useEffectEvent(async () => {
     const stored = await loadStoredSpreadsheet()
     // Uma planilha salva que não abre mais só geraria o mesmo erro a cada recarga.
-    if (stored && !(await importFile(stored.file))) await clearStoredSpreadsheet()
+    if (stored && !(await importFile(stored.file, stored.sheetName))) await clearStoredSpreadsheet()
   })
 
   useEffect(() => {
@@ -60,6 +65,10 @@ export function ImportPanel({
     if (file) {
       await importFile(file)
     }
+  }
+
+  async function handleSheetChange(sheetName: string) {
+    if (fileRef.current) await importFile(fileRef.current, sheetName)
   }
 
   async function handleDiscard() {
@@ -100,6 +109,23 @@ export function ImportPanel({
               </span>
               <Badge variant="secondary">{summary.totalRows} registros</Badge>
             </div>
+            {summary.sheetNames.length > 1 ? (
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
+                <Label htmlFor="import-sheet">Aba</Label>
+                <Select
+                  id="import-sheet"
+                  value={summary.sheetName}
+                  disabled={isImporting}
+                  onChange={(event) => handleSheetChange(event.target.value)}
+                >
+                  {summary.sheetNames.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            ) : null}
             <div className="grid grid-cols-3 gap-2">
               <ImportMetric label="Coordenadas" value={summary.withCoordinates} />
               <ImportMetric label="Por local" value={summary.fromLocal} />

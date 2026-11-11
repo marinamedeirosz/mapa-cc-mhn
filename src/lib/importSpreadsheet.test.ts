@@ -56,6 +56,23 @@ describe('parseSpreadsheetFile', () => {
     expect(result.records[0].dateText).toBe('10/05/2020')
   })
 
+  it('picks the first sheet with the expected columns and allows choosing another', async () => {
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([['Leia-me'], ['Instruções']]), 'Instruções')
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([headers, ['001', '', 'F', 'E', 'Maceió', '', '']]), 'Dados')
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([headers, ['002', '', 'F', 'E', 'Pilar', '', '']]), '2025')
+    const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer
+    const file = new File([buffer], 'abas.xlsx')
+
+    const first = await parseSpreadsheetFile(file)
+    expect(first.summary.sheetName).toBe('Dados')
+    expect(first.summary.sheetNames).toEqual(['Instruções', 'Dados', '2025'])
+    expect(first.records[0].code).toBe('001')
+
+    const chosen = await parseSpreadsheetFile(file, '2025')
+    expect(chosen.records[0].code).toBe('002')
+  })
+
   it('rejects spreadsheets with headers but no data rows', async () => {
     const file = workbookFile([
       headers,

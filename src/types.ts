@@ -32,6 +32,8 @@ export interface OccurrenceRecord {
 
 export interface ImportSummary {
   fileName: string
+  sheetName: string
+  sheetNames: string[]
   totalRows: number
   withCoordinates: number
   fromLocal: number

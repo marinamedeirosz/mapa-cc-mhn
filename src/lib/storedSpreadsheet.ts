@@ -6,6 +6,7 @@ const key = 'atual'
 
 export interface StoredSpreadsheet {
   file: File
+  sheetName?: string
 }
 
 export function saveStoredSpreadsheet(value: StoredSpreadsheet): Promise<void> {
