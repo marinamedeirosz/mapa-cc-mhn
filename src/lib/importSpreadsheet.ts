@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx'
+import type { WorkSheet } from 'xlsx'
 import { resolveLocalCoordinates } from '@/data/localCoordinates'
 import { formatDate, parseDateCell } from '@/lib/dates'
 import { normalizeHeader, repairMojibake } from '@/lib/text'
@@ -22,6 +22,8 @@ const columnLabels: Record<RequiredColumn, string> = {
 type RawRow = Record<string, unknown>
 
 export async function parseSpreadsheetFile(file: File, requestedSheet?: string): Promise<ImportResult> {
+  // Carregado só aqui: a biblioteca tem centenas de kB e só é usada ao importar.
+  const XLSX = await import('xlsx')
   const workbook = XLSX.read(await file.arrayBuffer(), {
     type: 'array',
     cellDates: true,
@@ -38,7 +40,7 @@ export async function parseSpreadsheetFile(file: File, requestedSheet?: string):
   const sheetName =
     requestedSheet && sheetNames.includes(requestedSheet)
       ? requestedSheet
-      : (sheetNames.find((name) => hasRequiredColumns(workbook.Sheets[name])) ?? sheetNames[0])
+      : (sheetNames.find((name) => hasRequiredColumns(XLSX, workbook.Sheets[name])) ?? sheetNames[0])
 
   const sheet = workbook.Sheets[sheetName]
   const rows = XLSX.utils.sheet_to_json<RawRow>(sheet, {
@@ -93,7 +95,8 @@ export async function parseSpreadsheetFile(file: File, requestedSheet?: string):
   }
 }
 
-export function downloadSpreadsheetTemplate(): void {
+export async function downloadSpreadsheetTemplate(): Promise<void> {
+  const XLSX = await import('xlsx')
   const sheet = XLSX.utils.aoa_to_sheet([
     requiredColumns.map((column) => columnLabels[column]),
     ['CC00019', '12/04/2025', 'PENAEIDAE', 'Penaeus sp.', 'Maceió, AL', `9°34'22"S / 35°46'40"W`, 'Linha de exemplo: substitua pelos seus registros'],
@@ -103,7 +106,7 @@ export function downloadSpreadsheetTemplate(): void {
   XLSX.writeFile(workbook, 'modelo-mapa-cc-mhn.xlsx')
 }
 
-function hasRequiredColumns(sheet: XLSX.WorkSheet): boolean {
+function hasRequiredColumns(XLSX: typeof import('xlsx'), sheet: WorkSheet): boolean {
   const [header = []] = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 })
   const headers = new Set(header.map(normalizeHeader))
 
