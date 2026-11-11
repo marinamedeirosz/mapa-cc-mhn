@@ -51,7 +51,13 @@ export interface ImportResult {
   summary: ImportSummary
 }
 
+export interface MapSelection {
+  label: string
+  recordIds: string[]
+}
+
 export interface Filters {
+  mapSelection: MapSelection | null
   dateStart: string
   dateEnd: string
   families: string[]

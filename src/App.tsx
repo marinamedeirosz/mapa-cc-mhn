@@ -165,6 +165,9 @@ function App() {
             mode={state.mapMode}
             onModeChange={(mapMode) => dispatch({ type: 'mapMode:set', mapMode })}
             focus={focus}
+            onSelectMunicipality={(mapSelection) =>
+              dispatch({ type: 'filters:update', filters: { ...state.filters, mapSelection } })
+            }
           />
           <StatsPanel
             stats={stats}

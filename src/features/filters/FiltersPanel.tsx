@@ -1,4 +1,4 @@
-import { CalendarDays, Eraser, Search } from 'lucide-react'
+import { CalendarDays, Eraser, MapIcon, Search, X } from 'lucide-react'
 import { MultiSelectFilter } from '@/components/MultiSelectFilter'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -38,6 +38,26 @@ export function FiltersPanel({
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4">
+        {filters.mapSelection ? (
+          <div className="flex items-center justify-between gap-2 rounded-md border bg-secondary/60 px-3 py-2 text-sm">
+            <span className="flex min-w-0 items-center gap-2">
+              <MapIcon className="size-4 shrink-0" />
+              <span className="truncate">
+                Município: {filters.mapSelection.label} ({filters.mapSelection.recordIds.length} lote(s))
+              </span>
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              aria-label="Remover filtro de município"
+              onClick={() => onChange({ ...filters, mapSelection: null })}
+            >
+              <X />
+            </Button>
+          </div>
+        ) : null}
         <div className="grid gap-2">
           <Label className="flex items-center gap-2">
             <CalendarDays className="size-4" />

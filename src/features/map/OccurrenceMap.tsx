@@ -1,5 +1,5 @@
 import L from 'leaflet'
-import { Download, Layers, Map as MapIcon, MapPin, MapPinned, Palette, RotateCcw, Tags } from 'lucide-react'
+import { Download, Filter, Layers, Map as MapIcon, MapPin, MapPinned, Palette, RotateCcw, Tags } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CircleMarker, MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import { Badge } from '@/components/ui/badge'
@@ -33,7 +33,7 @@ import type {
   MunicipalityRecordRef,
 } from '@/lib/municipalityAggregation'
 import { downloadBlob } from '@/lib/utils'
-import type { MapMode, OccurrenceRecord, RecordFocus } from '@/types'
+import type { MapMode, MapSelection, OccurrenceRecord, RecordFocus } from '@/types'
 import { HeatLayer } from './HeatLayer'
 import { MunicipalityChoroplethLayer } from './MunicipalityChoroplethLayer'
 
@@ -51,9 +51,10 @@ interface OccurrenceMapProps {
   mode: MapMode
   onModeChange: (mode: MapMode) => void
   focus: RecordFocus | null
+  onSelectMunicipality: (selection: MapSelection) => void
 }
 
-export function OccurrenceMap({ records, mode, onModeChange, focus }: OccurrenceMapProps) {
+export function OccurrenceMap({ records, mode, onModeChange, focus, onSelectMunicipality }: OccurrenceMapProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const [municipalityGeojson, setMunicipalityGeojson] =
     useState<MunicipalityFeatureCollection | null>(null)
@@ -288,6 +289,10 @@ export function OccurrenceMap({ records, mode, onModeChange, focus }: Occurrence
           grouping={grouping}
           open={Boolean(selectedMunicipality)}
           onOpenChange={(open) => !open && setSelectedMunicipalityId(null)}
+          onFilter={(selection) => {
+            setSelectedMunicipalityId(null)
+            onSelectMunicipality(selection)
+          }}
         />
         <MetricDetailDialog
           detail={selectedMetric}
@@ -377,11 +382,13 @@ function MunicipalityDetailDialog({
   grouping,
   open,
   onOpenChange,
+  onFilter,
 }: {
   municipality: MunicipalityCount | null
   grouping: MunicipalityGrouping
   open: boolean
   onOpenChange: (open: boolean) => void
+  onFilter: (selection: MapSelection) => void
 }) {
   const missingRefs = municipality?.records.filter(({ record }) =>
     grouping === 'family' ? !record.family.trim() : grouping === 'species' ? !record.species.trim() : false,
@@ -403,6 +410,22 @@ function MunicipalityDetailDialog({
           <Badge variant='outline'>{municipality?.direct ?? 0} diretos</Badge>
           <Badge variant='warning'>{municipality?.celmm ?? 0} CELMM</Badge>
           <Badge variant='outline'>{municipality?.lotTotal ?? 0} lotes</Badge>
+          {municipality ? (
+            <Button
+              type='button'
+              size='sm'
+              variant='outline'
+              className='ml-auto'
+              onClick={() =>
+                onFilter({
+                  label: municipality.name,
+                  recordIds: municipality.records.map(({ record }) => record.id),
+                })
+              }
+            >
+              <Filter /> Filtrar por este município
+            </Button>
+          ) : null}
           {grouping !== 'lot' && (municipality?.missingGroupingLots ?? 0) > 0 ? (
             <Badge variant='warning'>{municipality?.missingGroupingLots} lotes sem {groupLabel(grouping, 1)}</Badge>
           ) : null}
