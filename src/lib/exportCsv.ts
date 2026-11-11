@@ -44,7 +44,8 @@ export function recordsToCsv(records: OccurrenceRecord[]): string {
     positionSourceLabel(record),
   ])
 
-  return toCsv([headers, ...rows], ';')
+  // BOM: sem ele o Excel abre o UTF-8 como Latin-1 e quebra os acentos.
+  return '﻿' + toCsv([headers, ...rows], ';')
 }
 
 export function recordsToDarwinCoreCsv(records: OccurrenceRecord[]): string {

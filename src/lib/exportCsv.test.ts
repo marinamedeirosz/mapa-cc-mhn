@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { recordsToDarwinCoreCsv } from './exportCsv'
+import { recordsToCsv, recordsToDarwinCoreCsv } from './exportCsv'
 import type { OccurrenceRecord } from '@/types'
 
 const base: OccurrenceRecord = {
@@ -19,6 +19,12 @@ const base: OccurrenceRecord = {
   positionSource: 'local_fallback',
   importIssues: [],
 }
+
+describe('recordsToCsv', () => {
+  it('starts with a BOM so Excel reads accents correctly', () => {
+    expect(recordsToCsv([base]).startsWith('﻿Código;')).toBe(true)
+  })
+})
 
 describe('recordsToDarwinCoreCsv', () => {
   it('writes Darwin Core terms with ISO dates and quoted commas', () => {
