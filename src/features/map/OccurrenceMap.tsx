@@ -1,5 +1,5 @@
 import L from 'leaflet'
-import { Download, Layers, Map as MapIcon, MapPinned, Palette, RotateCcw, Tags } from 'lucide-react'
+import { Download, Layers, Map as MapIcon, MapPin, MapPinned, Palette, RotateCcw, Tags } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
 import { Badge } from '@/components/ui/badge'
@@ -33,7 +33,7 @@ import type {
   MunicipalityRecordRef,
 } from '@/lib/municipalityAggregation'
 import { downloadBlob } from '@/lib/utils'
-import type { MapMode, OccurrenceRecord, PositionSource } from '@/types'
+import type { MapMode, OccurrenceRecord } from '@/types'
 import { HeatLayer } from './HeatLayer'
 import { MunicipalityChoroplethLayer } from './MunicipalityChoroplethLayer'
 
@@ -209,6 +209,7 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
           <TabsList>
             <TabsTrigger value='heatmap'><Layers /> Pontos</TabsTrigger>
             <TabsTrigger value='municipalities'><MapIcon /> Municípios</TabsTrigger>
+            <TabsTrigger value='markers'><MapPin /> Lotes</TabsTrigger>
           </TabsList>
         </Tabs>
       </CardHeader>
@@ -235,19 +236,31 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
                 <Marker
                   key={record.id}
                   position={[record.latitude!, record.longitude!]}
-                  icon={markerIcon(record.positionSource)}
+                  icon={record.positionSource === 'local_fallback' ? localFallbackIcon : coordinatesIcon}
                 >
                   <Popup>
-                    <div className='grid min-w-56 gap-2 text-sm'>
+                    <div className='grid min-w-56 gap-1 text-sm'>
                       <strong>{record.code || 'Sem código'}</strong>
-                      <span>{record.species || 'Espécie não informada'}</span>
+                      <span>{record.family || 'Família não informada'} · <em>{record.species || 'Espécie não informada'}</em></span>
                       <span>{record.local || 'Local não informado'}</span>
+                      <span>{record.dateText || 'Sem data'}</span>
+                      <span className='text-muted-foreground'>
+                        {record.positionSource === 'local_fallback'
+                          ? `Posição aproximada: ${record.positionLabel}`
+                          : 'Coordenadas da planilha'}
+                      </span>
                     </div>
                   </Popup>
                 </Marker>
               ))
             : null}
         </MapContainer>
+        {mode === 'markers' ? (
+          <div className='pointer-events-none absolute bottom-3 left-3 z-[500] grid gap-1 rounded-md border bg-card/95 p-3 text-xs shadow-md backdrop-blur'>
+            <span className='flex items-center gap-2'><span className='occurrence-marker !size-3' /> Coordenadas da planilha</span>
+            <span className='flex items-center gap-2'><span className='occurrence-marker local-fallback !size-3' /> Aproximada pelo local</span>
+          </div>
+        ) : null}
         {mode === 'municipalities' && mapError ? (
           <div
             role='alert'
@@ -765,11 +778,5 @@ function uniqueRecords(groups: MunicipalityGroup[]): OccurrenceRecord[] {
   return Array.from(records.values())
 }
 
-function markerIcon(source: PositionSource) {
-  return L.divIcon({
-    className: `occurrence-marker ${source === 'local_fallback' ? 'local-fallback' : ''}`,
-    html: '',
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
-  })
-}
+const coordinatesIcon = L.divIcon({ className: 'occurrence-marker', html: '', iconSize: [18, 18], iconAnchor: [9, 9] })
+const localFallbackIcon = L.divIcon({ className: 'occurrence-marker local-fallback', html: '', iconSize: [18, 18], iconAnchor: [9, 9] })
