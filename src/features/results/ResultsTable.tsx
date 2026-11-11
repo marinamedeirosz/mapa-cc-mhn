@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { downloadCsv } from '@/lib/exportCsv'
+import { downloadCsv, recordsToCsv, recordsToDarwinCoreCsv } from '@/lib/exportCsv'
 import type { OccurrenceRecord } from '@/types'
 
 interface ResultsTableProps {
@@ -104,9 +104,19 @@ export function ResultsTable({ records, quickSearch, onQuickSearchChange }: Resu
                 className="pl-9"
               />
             </div>
-            <Button type="button" variant="outline" onClick={() => downloadCsv(records)} disabled={records.length === 0}>
+            <Button type="button" variant="outline" onClick={() => downloadCsv(recordsToCsv(records))} disabled={records.length === 0}>
               <Download />
               CSV
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => downloadCsv(recordsToDarwinCoreCsv(records), 'ocorrencias-darwin-core.csv')}
+              disabled={records.length === 0}
+              title="Padrão usado por GBIF e SiBBr"
+            >
+              <Download />
+              Darwin Core
             </Button>
           </div>
         </div>
