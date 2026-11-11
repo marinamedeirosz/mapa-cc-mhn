@@ -40,6 +40,7 @@ type AppAction =
   | { type: 'import:start' }
   | { type: 'import:success'; result: ImportResult }
   | { type: 'import:error'; message: string }
+  | { type: 'import:clear' }
   | { type: 'filters:update'; filters: Filters }
   | { type: 'filters:clear' }
   | { type: 'mapMode:set'; mapMode: MapMode }
@@ -69,6 +70,8 @@ function reducer(state: AppState, action: AppAction): AppState {
       }
     case 'import:error':
       return { ...state, isImporting: false, importError: action.message }
+    case 'import:clear':
+      return { ...state, records: [], summary: null, filters: initialFilters, importError: '' }
     case 'filters:update':
       return { ...state, filters: action.filters }
     case 'filters:clear':
@@ -131,6 +134,7 @@ function App() {
             onImportStart={() => dispatch({ type: 'import:start' })}
             onImportSuccess={(result) => dispatch({ type: 'import:success', result })}
             onImportError={(message) => dispatch({ type: 'import:error', message })}
+            onDiscard={() => dispatch({ type: 'import:clear' })}
           />
           <FiltersPanel
             filters={state.filters}

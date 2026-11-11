@@ -1,11 +1,12 @@
-import { AlertCircle, FileDown, FileSpreadsheet, MapPin, Upload } from 'lucide-react'
+import { AlertCircle, FileDown, FileSpreadsheet, MapPin, Trash2, Upload } from 'lucide-react'
 import type { ChangeEvent } from 'react'
-import { useRef } from 'react'
+import { useEffect, useEffectEvent, useRef } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { downloadSpreadsheetTemplate, parseSpreadsheetFile } from '@/lib/importSpreadsheet'
+import { clearStoredSpreadsheet, loadStoredSpreadsheet, saveStoredSpreadsheet } from '@/lib/storedSpreadsheet'
 import type { ImportResult, ImportSummary } from '@/types'
 
 interface ImportPanelProps {
@@ -15,6 +16,7 @@ interface ImportPanelProps {
   onImportStart: () => void
   onImportSuccess: (result: ImportResult) => void
   onImportError: (message: string) => void
+  onDiscard: () => void
 }
 
 export function ImportPanel({
@@ -24,24 +26,45 @@ export function ImportPanel({
   onImportStart,
   onImportSuccess,
   onImportError,
+  onDiscard,
 }: ImportPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+
+  async function importFile(file: File): Promise<boolean> {
+    onImportStart()
+
+    try {
+      onImportSuccess(await parseSpreadsheetFile(file))
+      await saveStoredSpreadsheet({ file })
+      return true
+    } catch (error) {
+      onImportError(error instanceof Error ? error.message : 'Não foi possível importar a planilha.')
+      return false
+    }
+  }
+
+  const restoreStoredSpreadsheet = useEffectEvent(async () => {
+    const stored = await loadStoredSpreadsheet()
+    // Uma planilha salva que não abre mais só geraria o mesmo erro a cada recarga.
+    if (stored && !(await importFile(stored.file))) await clearStoredSpreadsheet()
+  })
+
+  useEffect(() => {
+    void restoreStoredSpreadsheet()
+  }, [])
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
 
-    if (!file) {
-      return
+    if (file) {
+      await importFile(file)
     }
+  }
 
-    onImportStart()
-
-    try {
-      onImportSuccess(await parseSpreadsheetFile(file))
-    } catch (error) {
-      onImportError(error instanceof Error ? error.message : 'Não foi possível importar a planilha.')
-    }
+  async function handleDiscard() {
+    await clearStoredSpreadsheet()
+    onDiscard()
   }
 
   return (
@@ -81,6 +104,13 @@ export function ImportPanel({
               <ImportMetric label="Coordenadas" value={summary.withCoordinates} />
               <ImportMetric label="Por local" value={summary.fromLocal} />
               <ImportMetric label="Sem posição" value={summary.unresolved} tone={summary.unresolved > 0 ? 'warning' : 'default'} />
+            </div>
+            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>Salva só neste navegador, para não se perder ao recarregar.</span>
+              <Button type="button" variant="ghost" size="sm" onClick={handleDiscard}>
+                <Trash2 />
+                Descartar
+              </Button>
             </div>
           </div>
         ) : (
