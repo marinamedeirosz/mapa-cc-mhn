@@ -1,18 +1,16 @@
-import type { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table'
+import type { ColumnDef, SortingState } from '@tanstack/react-table'
 import {
   flexRender,
   getCoreRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { ArrowUpDown, ChevronLeft, ChevronRight, Crosshair, Download, Search } from 'lucide-react'
+import { ArrowUpDown, Crosshair, Download, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { downloadCsv, recordsToCsv, recordsToDarwinCoreCsv } from '@/lib/exportCsv'
 import type { OccurrenceRecord } from '@/types'
@@ -26,10 +24,6 @@ interface ResultsTableProps {
 
 export function ResultsTable({ records, quickSearch, onQuickSearchChange, onLocate }: ResultsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: 10,
-  })
   const columns = useMemo<ColumnDef<OccurrenceRecord>[]>(
     () => [
       {
@@ -99,22 +93,21 @@ export function ResultsTable({ records, quickSearch, onQuickSearchChange, onLoca
     columns,
     state: {
       sorting,
-      pagination,
     },
     onSortingChange: setSorting,
-    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
   })
 
   return (
-    <Card>
+    // Todos os lotes filtrados numa lista que rola, com o cabeçalho fixo (a planilha já está toda na memória).
+    // shortcut: desenha todas as linhas; com milhares de lotes pode ficar lento, aí vale virtualizar a lista.
+    <Card className="flex flex-col xl:h-full">
       <CardHeader className="gap-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <CardTitle className="text-base">Tabela de resultados</CardTitle>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <div className="relative min-w-64">
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle className="sr-only">Tabela de resultados</CardTitle>
+          <div className="flex flex-1 flex-wrap gap-2">
+            <div className="relative min-w-48 flex-1">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={quickSearch}
@@ -140,14 +133,14 @@ export function ResultsTable({ records, quickSearch, onQuickSearchChange, onLoca
           </div>
         </div>
       </CardHeader>
-      <CardContent className="grid gap-3">
-        <div className="overflow-hidden rounded-md border">
-          <Table>
+      <CardContent className="flex min-h-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-hidden rounded-md border">
+          <Table containerClassName="max-h-[70svh] xl:h-full xl:max-h-none">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id}>
+                    <TableHead key={header.id} className="sticky top-0 z-10 bg-card">
                       {header.isPlaceholder
                         ? null
                         : flexRender(header.column.columnDef.header, header.getContext())}
@@ -178,45 +171,6 @@ export function ResultsTable({ records, quickSearch, onQuickSearchChange, onLoca
           </Table>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-sm text-muted-foreground">
-            Página {table.getState().pagination.pageIndex + 1} de {Math.max(table.getPageCount(), 1)}
-          </div>
-          <div className="flex items-center gap-2">
-            <Select
-              aria-label="Registros por página"
-              value={String(table.getState().pagination.pageSize)}
-              onChange={(event) => table.setPageSize(Number(event.target.value))}
-              className="w-24"
-            >
-              {[10, 25, 50].map((pageSize) => (
-                <option key={pageSize} value={pageSize}>
-                  {pageSize}
-                </option>
-              ))}
-            </Select>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-              aria-label="Página anterior"
-            >
-              <ChevronLeft />
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-              aria-label="Próxima página"
-            >
-              <ChevronRight />
-            </Button>
-          </div>
-        </div>
       </CardContent>
     </Card>
   )
