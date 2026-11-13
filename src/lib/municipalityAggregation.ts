@@ -329,6 +329,23 @@ export function getMunicipalityColor(
   return mixWithWhite(validAccent, 0.62)
 }
 
+// Faixas de contagem que caem na mesma cor, para a legenda do mapa (ex.: 1, 2–3, 4–5).
+export function municipalityColorScale(
+  max: number,
+  accentColor = defaultMunicipalityAccentColor,
+): Array<{ from: number; to: number; color: string }> {
+  const scale: Array<{ from: number; to: number; color: string }> = []
+
+  for (let count = 1; count <= max; count += 1) {
+    const color = getMunicipalityColor(count, max, accentColor)
+    const last = scale.at(-1)
+    if (last?.color === color) last.to = count
+    else scale.push({ from: count, to: count, color })
+  }
+
+  return scale
+}
+
 function mixWithWhite(color: string, amount: number): string {
   const channels = [1, 3, 5].map((start) => Number.parseInt(color.slice(start, start + 2), 16))
   const mixed = channels.map((channel) => Math.round(channel + (255 - channel) * amount))

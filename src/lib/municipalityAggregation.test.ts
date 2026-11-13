@@ -4,6 +4,7 @@ import {
   celmmMunicipalities,
   defaultMunicipalityAccentColor,
   getMunicipalityColor,
+  municipalityColorScale,
   municipalityInteriorPoint,
 } from './municipalityAggregation'
 import type { MunicipalityFeatureCollection } from './municipalityAggregation'
@@ -77,6 +78,19 @@ describe('aggregateByMunicipality', () => {
     expect(aggregation.marineRecords.map((item) => item.code)).toEqual(['MAR'])
     expect(aggregation.unresolvedRecords.map((item) => item.code)).toEqual(['LONGE'])
     expect(aggregation.counts.size).toBe(0)
+  })
+
+  it('groups counts that share a color into legend ranges', () => {
+    const scale = municipalityColorScale(10, '#0f4c81')
+
+    expect(scale.map(({ from, to }) => [from, to])).toEqual([
+      [1, 2],
+      [3, 5],
+      [6, 7],
+      [8, 10],
+    ])
+    expect(scale.at(-1)?.color).toBe('#0f4c81')
+    expect(municipalityColorScale(0)).toEqual([])
   })
 
   it('finds a point inside a concave municipality whose centroid falls outside', () => {
