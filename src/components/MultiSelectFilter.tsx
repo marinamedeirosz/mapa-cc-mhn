@@ -16,16 +16,17 @@ import { cn } from '@/lib/utils'
 
 interface MultiSelectFilterProps {
   label: string
+  placeholder?: string
   options: string[]
   selected: string[]
   onChange: (values: string[]) => void
 }
 
-export function MultiSelectFilter({ label, options, selected, onChange }: MultiSelectFilterProps) {
+export function MultiSelectFilter({ label, placeholder = 'Todos', options, selected, onChange }: MultiSelectFilterProps) {
   const [open, setOpen] = useState(false)
   const selectedSet = useMemo(() => new Set(selected.map((value) => normalizeText(value))), [selected])
-  const summary = selected.length === 0 ? 'Todos' : `${selected.length} selecionado${selected.length > 1 ? 's' : ''}`
-  const selectedPreview = selected.length === 0 ? 'Todos' : selected.join(', ')
+  const visible = selected.slice(0, 2)
+  const hidden = selected.length - visible.length
 
   function toggleOption(option: string) {
     const normalizedOption = normalizeText(option)
@@ -39,24 +40,31 @@ export function MultiSelectFilter({ label, options, selected, onChange }: MultiS
   }
 
   return (
-    <div className="grid gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">{label}</span>
-        <span className="text-xs text-muted-foreground">{summary}</span>
-      </div>
+    <div className="grid gap-1.5">
+      <span className="text-sm font-medium">{label}</span>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" className="h-auto min-h-9 w-full justify-between px-3 py-2">
-            <span className="grid min-w-0 flex-1 gap-0.5 text-left">
-              <span className="text-xs text-muted-foreground">{label}</span>
-              <span className={cn('truncate text-sm', selected.length === 0 && 'text-muted-foreground')}>
-                {selectedPreview}
+          <Button
+            variant="outline"
+            aria-label={`${label}: ${selected.length === 0 ? placeholder : selected.join(', ')}`}
+            className={cn('h-auto min-h-9 w-full justify-between px-3 py-1.5 font-normal', selected.length > 0 && 'border-primary/60')}
+          >
+            {selected.length === 0 ? (
+              <span className="truncate text-muted-foreground">{placeholder}</span>
+            ) : (
+              <span className="flex min-w-0 flex-wrap gap-1">
+                {visible.map((value) => (
+                  <span key={value} className="max-w-40 truncate rounded bg-primary/10 px-1.5 py-0.5 text-xs">
+                    {value}
+                  </span>
+                ))}
+                {hidden > 0 ? <span className="rounded bg-muted px-1.5 py-0.5 text-xs">+{hidden}</span> : null}
               </span>
-            </span>
-            <ChevronDown className="ml-2" />
+            )}
+            <ChevronDown className="ml-2 text-muted-foreground" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-[min(320px,calc(100vw-2rem))]">
+        <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] min-w-64">
           <Command>
             <CommandInput placeholder={`Buscar ${label.toLowerCase()}`} />
             <div className="flex gap-2 border-b p-2">

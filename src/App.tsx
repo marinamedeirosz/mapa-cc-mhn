@@ -1,6 +1,5 @@
-import { AlertTriangle, Database, MapPinned } from 'lucide-react'
+import { Database, MapPinned } from 'lucide-react'
 import { useEffect, useMemo, useReducer, useState } from 'react'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -9,16 +8,17 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FiltersPanel } from '@/features/filters/FiltersPanel'
 import { ImportPanel } from '@/features/import/ImportPanel'
 import { LocalMappingsDialog } from '@/features/locals/LocalMappingsDialog'
 import { OccurrenceMap } from '@/features/map/OccurrenceMap'
 import { useMunicipalityGeojson } from '@/features/map/useMunicipalityGeojson'
 import { ResultsTable } from '@/features/results/ResultsTable'
-import { StatsPanel, type DistributionFilterKey } from '@/features/stats/StatsPanel'
+import { StatsPanel, YearTimelineCard, type DistributionFilterKey } from '@/features/stats/StatsPanel'
+import { SummaryBar } from '@/features/summary/SummaryBar'
 import { WormsPanel } from '@/features/taxonomy/WormsPanel'
 import {
   applyFilters,
@@ -103,6 +103,8 @@ function App() {
   const [focus, setFocus] = useState<RecordFocus | null>(null)
   const [localMappings, setLocalMappings] = useState<LocalMapping[]>(loadLocalMappings)
   const [isLocalsOpen, setIsLocalsOpen] = useState(false)
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false)
+  const [isIssuesOpen, setIsIssuesOpen] = useState(false)
   const { geojson, error: geojsonError } = useMunicipalityGeojson()
   // Locais definidos pela curadoria posicionam lotes que a planilha e a base fixa não resolveram.
   const imported = useMemo(
@@ -133,65 +135,68 @@ function App() {
   const undatedRecords = recordsIgnoringPeriod.filter((record) => !record.date).length
   const undatedOutsidePeriod = state.filters.dateStart || state.filters.dateEnd ? undatedRecords : 0
   const positionedCount = filteredRecords.filter((record) => record.positionSource !== 'unresolved').length
+  const activeFilterCount = [
+    state.filters.dateStart || state.filters.dateEnd,
+    state.filters.families.length,
+    state.filters.species.length,
+    state.filters.locals.length,
+    state.filters.observation.trim(),
+    state.filters.mapSelection,
+  ].filter(Boolean).length
 
   return (
-    <main className="min-h-svh">
+    // No desktop a página cabe na altura da tela: mapa e painel esticam, e só o conteúdo das abas rola.
+    <main className="flex min-h-svh flex-col xl:h-svh">
       <header className="border-b bg-card">
-        <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="grid gap-1">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <MapPinned className="size-4 text-primary" />
+        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
+          <div className="grid">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <MapPinned className="size-3.5 text-primary" />
               Ocorrências biológicas georreferenciadas
             </div>
-            <h1 className="text-2xl font-semibold tracking-normal">Mapa CC MHN</h1>
+            <h1 className="text-xl font-semibold tracking-normal">Mapa CC MHN</h1>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary">{records.length} registros importados</Badge>
-            <Badge variant="outline">{positionedCount} no mapa</Badge>
+          <div className="ml-auto">
+            <ImportPanel
+              isImporting={state.isImporting}
+              importError={state.importError}
+              summary={summary}
+              onImportStart={() => dispatch({ type: 'import:start' })}
+              onImportSuccess={(result) => dispatch({ type: 'import:success', result })}
+              onImportError={(message) => dispatch({ type: 'import:error', message })}
+              onDiscard={() => dispatch({ type: 'import:clear' })}
+            />
           </div>
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[1600px] gap-4 px-4 py-4 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="grid content-start gap-4">
-          <ImportPanel
-            isImporting={state.isImporting}
-            importError={state.importError}
-            summary={summary}
-            onImportStart={() => dispatch({ type: 'import:start' })}
-            onImportSuccess={(result) => dispatch({ type: 'import:success', result })}
-            onImportError={(message) => dispatch({ type: 'import:error', message })}
-            onDiscard={() => dispatch({ type: 'import:clear' })}
-            localMappingsCount={localMappings.length}
-            onOpenLocals={() => setIsLocalsOpen(true)}
-          />
-          <LocalMappingsDialog
-            open={isLocalsOpen}
-            onOpenChange={setIsLocalsOpen}
-            records={records}
-            mappings={localMappings}
-            onChange={setLocalMappings}
-            geojson={geojson}
-          />
-          <FiltersPanel
-            filters={state.filters}
-            options={filterOptions}
-            resultCount={filteredRecords.length}
-            undatedOutsidePeriod={undatedOutsidePeriod}
-            onChange={(filters) => dispatch({ type: 'filters:update', filters })}
-            onClear={() => dispatch({ type: 'filters:clear' })}
-          />
-        </aside>
+      {summary ? (
+        <SummaryBar
+          totalRecords={records.length}
+          filteredCount={filteredRecords.length}
+          activeFilterCount={activeFilterCount}
+          positionedCount={positionedCount}
+          unresolved={summary.unresolved}
+          issues={summary.issues.length}
+          families={stats.totalFamilies}
+          species={stats.totalSpecies}
+          locals={stats.totalLocals}
+          onOpenFilters={() => setIsFiltersOpen(true)}
+          onOpenLocals={() => setIsLocalsOpen(true)}
+          onOpenIssues={() => setIsIssuesOpen(true)}
+        />
+      ) : null}
 
-        <section className="grid min-w-0 gap-4">
+      <div className="mx-auto grid w-full max-w-[1600px] flex-1 gap-4 px-4 py-4 xl:min-h-0 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <section className="flex min-w-0 flex-col gap-4 xl:min-h-0">
           {records.length === 0 ? <EmptyState /> : null}
-
-          {summary?.issues.length ? <ImportIssuesDialog issues={summary.issues} /> : null}
-
           <OccurrenceMap
             records={filteredRecords}
             mode={state.mapMode}
-            onModeChange={(mapMode) => dispatch({ type: 'mapMode:set', mapMode })}
+            onModeChange={(mapMode) => {
+              dispatch({ type: 'mapMode:set', mapMode })
+              setFocus(null)
+            }}
             focus={focus}
             municipalityGeojson={geojson}
             geojsonError={geojsonError}
@@ -199,25 +204,67 @@ function App() {
               dispatch({ type: 'filters:update', filters: { ...state.filters, mapSelection } })
             }
           />
-          <StatsPanel
-            stats={stats}
-            filters={state.filters}
-            onSelect={(key, label) =>
-              dispatch({ type: 'filters:update', filters: toggleFilterValue(state.filters, key, label) })
-            }
-            years={years}
-            undatedRecords={undatedRecords}
-            onSelectYear={(year) => dispatch({ type: 'filters:update', filters: toggleYear(state.filters, year) })}
-          />
-          <WormsPanel records={records} />
-          <ResultsTable
-            records={tableRecords}
-            quickSearch={state.filters.quickSearch}
-            onQuickSearchChange={(quickSearch) => dispatch({ type: 'quickSearch:set', quickSearch })}
-            onLocate={(record) => setFocus({ record, requestedAt: Date.now() })}
-          />
+          {records.length > 0 ? (
+            <YearTimelineCard
+              years={years}
+              undated={undatedRecords}
+              filters={state.filters}
+              onSelect={(year) => dispatch({ type: 'filters:update', filters: toggleYear(state.filters, year) })}
+            />
+          ) : null}
         </section>
+
+        <Tabs defaultValue="lots" className="min-w-0 xl:min-h-0">
+          <TabsList>
+            <TabsTrigger value="lots">Lotes ({tableRecords.length})</TabsTrigger>
+            <TabsTrigger value="distributions">Distribuições</TabsTrigger>
+            <TabsTrigger value="worms">WoRMS</TabsTrigger>
+          </TabsList>
+          <TabsContent value="lots" className="xl:min-h-0 xl:flex-1">
+            <ResultsTable
+              records={tableRecords}
+              quickSearch={state.filters.quickSearch}
+              onQuickSearchChange={(quickSearch) => dispatch({ type: 'quickSearch:set', quickSearch })}
+              onLocate={(record) => setFocus({ record, requestedAt: Date.now() })}
+            />
+          </TabsContent>
+          <TabsContent value="distributions" className="xl:min-h-0 xl:flex-1 xl:overflow-auto">
+            <StatsPanel
+              stats={stats}
+              filters={state.filters}
+              onSelect={(key, label) =>
+                dispatch({ type: 'filters:update', filters: toggleFilterValue(state.filters, key, label) })
+              }
+            />
+          </TabsContent>
+          <TabsContent value="worms" className="xl:min-h-0 xl:flex-1 xl:overflow-auto">
+            <WormsPanel records={records} />
+          </TabsContent>
+        </Tabs>
       </div>
+
+      <FiltersPanel
+        open={isFiltersOpen}
+        onOpenChange={setIsFiltersOpen}
+        totalCount={records.length}
+        filters={state.filters}
+        options={filterOptions}
+        resultCount={filteredRecords.length}
+        undatedOutsidePeriod={undatedOutsidePeriod}
+        onChange={(filters) => dispatch({ type: 'filters:update', filters })}
+        onClear={() => dispatch({ type: 'filters:clear' })}
+      />
+      <LocalMappingsDialog
+        open={isLocalsOpen}
+        onOpenChange={setIsLocalsOpen}
+        records={records}
+        mappings={localMappings}
+        onChange={setLocalMappings}
+        geojson={geojson}
+      />
+      {summary?.issues.length ? (
+        <ImportIssuesDialog issues={summary.issues} open={isIssuesOpen} onOpenChange={setIsIssuesOpen} />
+      ) : null}
     </main>
   )
 }
@@ -239,26 +286,17 @@ function EmptyState() {
   )
 }
 
-function ImportIssuesDialog({ issues }: { issues: ImportIssue[] }) {
+function ImportIssuesDialog({
+  issues,
+  open,
+  onOpenChange,
+}: {
+  issues: ImportIssue[]
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Alert
-          asChild
-          className="border-accent bg-accent/30 text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-        >
-          <button type="button" aria-label="Ver avisos da importação">
-            <AlertTriangle className="absolute left-3 top-3 size-4" />
-            <div className="pl-6">
-              <AlertTitle>{issues.length} aviso(s) na importação</AlertTitle>
-              <AlertDescription>
-                Registros sem posição seguem na tabela e nas estatísticas; apenas ficam fora do mapa.
-              </AlertDescription>
-            </div>
-          </button>
-        </Alert>
-      </DialogTrigger>
-
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Problemas encontrados na importação</DialogTitle>
