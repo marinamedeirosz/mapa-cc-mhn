@@ -221,8 +221,10 @@ export async function downloadMunicipalityMapPng(svg: string, fileName: string):
   try {
     const image = await loadImage(url)
     const canvas = document.createElement('canvas')
-    canvas.width = reportWidth
-    canvas.height = reportHeight
+    // 2x: o PNG sai com 3200 x 1800 px, nítido em impressão e apresentações.
+    const scale = 2
+    canvas.width = reportWidth * scale
+    canvas.height = reportHeight * scale
     const context = canvas.getContext('2d')
 
     if (!context) {
@@ -231,7 +233,7 @@ export async function downloadMunicipalityMapPng(svg: string, fileName: string):
 
     context.fillStyle = '#f8faf8'
     context.fillRect(0, 0, canvas.width, canvas.height)
-    context.drawImage(image, 0, 0)
+    context.drawImage(image, 0, 0, canvas.width, canvas.height)
 
     const pngUrl = canvas.toDataURL('image/png')
     const link = document.createElement('a')
