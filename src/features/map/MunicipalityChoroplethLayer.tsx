@@ -111,6 +111,9 @@ export function MunicipalityChoroplethLayer({
           const missingText = missing > 0 ? ` · ${missing} lote(s) sem informação` : ''
 
           layer.bindTooltip(`${name}: ${total} ${unit} · ${lotTotal} lote(s)${missingText}`, { sticky: true })
+          // Contorno escuro no município sob o mouse, para saber qual está sendo lido.
+          layer.on('mouseover', () => (layer as L.Path).setStyle({ color: '#172021', weight: 2.5 }))
+          layer.on('mouseout', () => (layer as L.Path).setStyle({ color: '#65736f', weight: total > 0 ? 1.4 : 0.8 }))
           layer.on('click', () => {
             if (lotTotal > 0) {
               onMunicipalityClick(id)
