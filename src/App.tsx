@@ -1,4 +1,4 @@
-import { Database, MapPinned } from 'lucide-react'
+import { Database } from 'lucide-react'
 import { useEffect, useMemo, useReducer, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -149,12 +149,12 @@ function App() {
     <main className="flex min-h-svh flex-col xl:h-svh">
       <header className="border-b bg-card">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
-          <div className="grid">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <MapPinned className="size-3.5 text-primary" />
-              Ocorrências biológicas georreferenciadas
+          <div className="flex items-center gap-3">
+            <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="size-10" />
+            <div className="grid">
+              <span className="text-xs text-muted-foreground">Ocorrências biológicas georreferenciadas</span>
+              <h1 className="text-xl font-semibold tracking-normal">Mapa CC MHN</h1>
             </div>
-            <h1 className="text-xl font-semibold tracking-normal">Mapa CC MHN</h1>
           </div>
           <div className="ml-auto">
             <ImportPanel
