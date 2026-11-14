@@ -1,4 +1,4 @@
-import { getMunicipalityColor } from '@/lib/municipalityAggregation'
+import { getMunicipalityColor, getMunicipalityFeatureId } from '@/lib/municipalityAggregation'
 import type {
   MunicipalityAggregation,
   MunicipalityFeature,
@@ -64,13 +64,14 @@ const calloutColumnGap = 24
 export function getMunicipalityMapFileName(
   grouping: MunicipalityGrouping = 'lot',
   date = new Date(),
+  extension: 'png' | 'svg' = 'png',
 ): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   const groupingSlug = grouping === 'lot' ? 'lotes' : grouping === 'family' ? 'familias' : 'especies'
 
-  return `mapa-municipios-alagoas-por-${groupingSlug}-${year}-${month}-${day}.png`
+  return `mapa-municipios-alagoas-por-${groupingSlug}-${year}-${month}-${day}.${extension}`
 }
 
 export function formatMunicipalityLabel(name: string, total: number): string {
@@ -180,6 +181,7 @@ export function buildMunicipalityReportSvg({
         balanceCallouts: true,
       })
     : []
+  const marine = marineToSvg(aggregation, projection, getMunicipalityColor(1, 1, accentColor))
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="100%" height="100%" fill="#f8faf8"/>
@@ -188,7 +190,28 @@ export function buildMunicipalityReportSvg({
     ${geojson.features.map((feature) => featureToSvg(feature, aggregation, projection, accentColor)).join('\n    ')}
   </g>
   ${labels.map(labelToSvg).join('\n  ')}
+  ${marine}
 </svg>`
+}
+
+// Lotes marinhos viram pontos; os que caem fora do recorte do mapa só entram na contagem da legenda.
+function marineToSvg(aggregation: MunicipalityAggregation, projection: SvgProjection, color: string): string {
+  const total = aggregation.marineRecords.length
+  if (total === 0) return ''
+
+  const points = aggregation.marineRecords
+    .map((record) => projection.project(record.latitude!, record.longitude!))
+    .filter(({ x, y }) => x >= mapX && x <= mapX + mapWidth && y >= mapY && y <= mapY + mapHeight)
+  const outside = total - points.length
+  const legendY = mapY + mapHeight - 20
+
+  return [
+    ...points.map(({ x, y }) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6" fill="${color}" stroke="#ffffff" stroke-width="2"/>`),
+    `<circle cx="${mapX + 22}" cy="${legendY - 4}" r="6" fill="${color}" stroke="#ffffff" stroke-width="2"/>`,
+    `<text x="${mapX + 34}" y="${legendY}" font-family="Inter, Arial, sans-serif" font-size="13" fill="#172021">${escapeXml(
+      `Lotes marinhos: ${total}${outside > 0 ? ` (${outside} fora do recorte)` : ''}`,
+    )}</text>`,
+  ].join('\n  ')
 }
 
 export async function downloadMunicipalityMapPng(svg: string, fileName: string): Promise<void> {
@@ -198,17 +221,19 @@ export async function downloadMunicipalityMapPng(svg: string, fileName: string):
   try {
     const image = await loadImage(url)
     const canvas = document.createElement('canvas')
-    canvas.width = reportWidth
-    canvas.height = reportHeight
+    // 2x: o PNG sai com 3200 x 1800 px, nítido em impressão e apresentações.
+    const scale = 2
+    canvas.width = reportWidth * scale
+    canvas.height = reportHeight * scale
     const context = canvas.getContext('2d')
 
     if (!context) {
-      throw new Error('Nao foi possivel preparar a imagem do mapa.')
+      throw new Error('Não foi possível preparar a imagem do mapa.')
     }
 
     context.fillStyle = '#f8faf8'
     context.fillRect(0, 0, canvas.width, canvas.height)
-    context.drawImage(image, 0, 0)
+    context.drawImage(image, 0, 0, canvas.width, canvas.height)
 
     const pngUrl = canvas.toDataURL('image/png')
     const link = document.createElement('a')
@@ -218,10 +243,6 @@ export async function downloadMunicipalityMapPng(svg: string, fileName: string):
   } finally {
     URL.revokeObjectURL(url)
   }
-}
-
-export function getMunicipalityFeatureId(feature: MunicipalityFeature): string {
-  return feature.properties.id ?? feature.properties.codarea ?? feature.properties.name
 }
 
 function featureToSvg(
@@ -587,7 +608,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image()
     image.onload = () => resolve(image)
-    image.onerror = () => reject(new Error('Nao foi possivel gerar a imagem do mapa.'))
+    image.onerror = () => reject(new Error('Não foi possível gerar a imagem do mapa.'))
     image.src = url
   })
 }

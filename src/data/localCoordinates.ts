@@ -13,7 +13,6 @@ export interface LocalResolution {
   latitude: number
   longitude: number
   municipality: string | null
-  isCelmm: boolean
 }
 
 const celmm: LocalCoordinate = {
@@ -203,7 +202,7 @@ export function resolveLocalCoordinates(local: string): LocalResolution | null {
     return null
   }
 
-  if (isCelmm(normalizedLocal)) {
+  if (isCelmmLocal(local)) {
     return toResolution(celmm)
   }
 
@@ -212,10 +211,11 @@ export function resolveLocalCoordinates(local: string): LocalResolution | null {
   return match ? toResolution(match.entry) : null
 }
 
-function isCelmm(normalizedLocal: string): boolean {
-  return ['mundau', 'manguaba', 'lagoa mundau', 'lagoa manguaba', 'celmm'].some((key) =>
-    normalizedLocal.includes(key),
-  )
+// Qualquer menção ao complexo lagunar (CELMM, Mundaú ou Manguaba) conta como CELMM.
+export function isCelmmLocal(local: string): boolean {
+  const normalizedLocal = normalizeText(local)
+
+  return ['celmm', 'mundau', 'manguaba'].some((term) => normalizedLocal.includes(term))
 }
 
 function normalizeLocal(value: string): string {
@@ -240,6 +240,5 @@ function toResolution(entry: LocalCoordinate): LocalResolution {
     latitude: entry.latitude,
     longitude: entry.longitude,
     municipality: entry.municipality ?? null,
-    isCelmm: entry.label === 'CELMM',
   }
 }

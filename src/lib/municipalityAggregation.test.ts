@@ -4,6 +4,8 @@ import {
   celmmMunicipalities,
   defaultMunicipalityAccentColor,
   getMunicipalityColor,
+  municipalityColorScale,
+  municipalityInteriorPoint,
 } from './municipalityAggregation'
 import type { MunicipalityFeatureCollection } from './municipalityAggregation'
 import type { OccurrenceRecord } from '@/types'
@@ -62,6 +64,57 @@ describe('aggregateByMunicipality', () => {
     expect(aggregation.celmmGroups).toBe(1)
     expect(Array.from(aggregation.counts.values()).every((item) => item.celmm === 1)).toBe(true)
     expect(Array.from(aggregation.counts.values()).every((item) => item.records[0].source === 'celmm')).toBe(true)
+  })
+
+  it('separates points far out at sea east of the state from unresolved points', () => {
+    const aggregation = aggregateByMunicipality(
+      [
+        record({ code: 'MAR', local: 'Maceió', latitude: -9.5, longitude: -33 }),
+        record({ code: 'LONGE', local: '', latitude: -20, longitude: -33 }),
+      ],
+      geojson,
+    )
+
+    expect(aggregation.marineRecords.map((item) => item.code)).toEqual(['MAR'])
+    expect(aggregation.unresolvedRecords.map((item) => item.code)).toEqual(['LONGE'])
+    expect(aggregation.counts.size).toBe(0)
+  })
+
+  it('groups counts that share a color into legend ranges', () => {
+    const scale = municipalityColorScale(10, '#0f4c81')
+
+    expect(scale.map(({ from, to }) => [from, to])).toEqual([
+      [1, 2],
+      [3, 5],
+      [6, 7],
+      [8, 10],
+    ])
+    expect(scale.at(-1)?.color).toBe('#0f4c81')
+    expect(municipalityColorScale(0)).toEqual([])
+  })
+
+  it('finds a point inside a concave municipality whose centroid falls outside', () => {
+    // Um "U": o centroide fica no vão do meio, fora do polígono.
+    const uShape = municipality('u', 'U', [
+      [
+        [0, 0],
+        [3, 0],
+        [3, 3],
+        [2, 3],
+        [2, 1],
+        [1, 1],
+        [1, 3],
+        [0, 3],
+        [0, 0],
+      ],
+    ])
+    const point = municipalityInteriorPoint(uShape)
+    const aggregation = aggregateByMunicipality(
+      [record({ local: '', latitude: point.latitude, longitude: point.longitude })],
+      { type: 'FeatureCollection', features: [uShape] },
+    )
+
+    expect(aggregation.counts.get('u')?.lotTotal).toBe(1)
   })
 
   it('distributes Mundaú and Manguaba aliases as CELMM', () => {

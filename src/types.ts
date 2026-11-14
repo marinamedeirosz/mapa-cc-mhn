@@ -30,8 +30,15 @@ export interface OccurrenceRecord {
   importIssues: ImportIssue[]
 }
 
+export interface RecordFocus {
+  record: OccurrenceRecord
+  requestedAt: number
+}
+
 export interface ImportSummary {
   fileName: string
+  sheetName: string
+  sheetNames: string[]
   totalRows: number
   withCoordinates: number
   fromLocal: number
@@ -44,7 +51,13 @@ export interface ImportResult {
   summary: ImportSummary
 }
 
+export interface MapSelection {
+  label: string
+  recordIds: string[]
+}
+
 export interface Filters {
+  mapSelection: MapSelection | null
   dateStart: string
   dateEnd: string
   families: string[]
@@ -73,4 +86,9 @@ export interface StatsSummary {
   byFamily: DistributionItem[]
   bySpecies: DistributionItem[]
   byLocal: DistributionItem[]
+}
+
+export interface YearCount {
+  year: number
+  count: number
 }

@@ -1,12 +1,8 @@
 import L from 'leaflet'
 import { useEffect, useMemo, useState } from 'react'
 import { GeoJSON, Marker, Polyline, useMap } from 'react-leaflet'
-import {
-  formatMunicipalityLabel,
-  getMunicipalityFeatureId,
-  selectMunicipalityLabels,
-} from '@/lib/municipalityMapExport'
-import { getMunicipalityColor } from '@/lib/municipalityAggregation'
+import { formatMunicipalityLabel, selectMunicipalityLabels } from '@/lib/municipalityMapExport'
+import { getMunicipalityColor, getMunicipalityFeatureId } from '@/lib/municipalityAggregation'
 import type {
   MunicipalityAggregation,
   MunicipalityFeature,
@@ -30,6 +26,16 @@ export function MunicipalityChoroplethLayer({
 }: MunicipalityChoroplethLayerProps) {
   const map = useMap()
   const [mapRevision, setMapRevision] = useState(0)
+  // Tooltip e clique só são recriados quando a key muda, então ela precisa refletir cada município.
+  const layerKey = useMemo(
+    () =>
+      [
+        aggregation.grouping,
+        accentColor,
+        ...Array.from(aggregation.counts.values(), (count) => `${count.id}:${count.total}:${count.lotTotal}:${count.missingGroupingLots}`),
+      ].join('|'),
+    [aggregation, accentColor],
+  )
 
   useEffect(() => {
     const bounds = L.geoJSON(geojson).getBounds()
@@ -78,7 +84,7 @@ export function MunicipalityChoroplethLayer({
   return (
     <>
       <GeoJSON
-        key={`${aggregation.grouping}-${aggregation.max}-${aggregation.totalAssignments}-${aggregation.unresolvedLots}-${accentColor}`}
+        key={layerKey}
         data={geojson}
         style={(feature) => {
           const municipalityFeature = feature as MunicipalityFeature
@@ -105,6 +111,9 @@ export function MunicipalityChoroplethLayer({
           const missingText = missing > 0 ? ` · ${missing} lote(s) sem informação` : ''
 
           layer.bindTooltip(`${name}: ${total} ${unit} · ${lotTotal} lote(s)${missingText}`, { sticky: true })
+          // Contorno escuro no município sob o mouse, para saber qual está sendo lido.
+          layer.on('mouseover', () => (layer as L.Path).setStyle({ color: '#172021', weight: 2.5 }))
+          layer.on('mouseout', () => (layer as L.Path).setStyle({ color: '#65736f', weight: total > 0 ? 1.4 : 0.8 }))
           layer.on('click', () => {
             if (lotTotal > 0) {
               onMunicipalityClick(id)

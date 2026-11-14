@@ -1,4 +1,4 @@
-import { resolveLocalCoordinates } from '@/data/localCoordinates'
+import { isCelmmLocal, resolveLocalCoordinates } from '@/data/localCoordinates'
 import { normalizeText } from '@/lib/text'
 import type { OccurrenceRecord } from '@/types'
 
@@ -41,8 +41,6 @@ export interface MunicipalityCount {
   celmm: number
   total: number
   lotTotal: number
-  directLots: number
-  celmmLots: number
   missingGroupingLots: number
   records: MunicipalityRecordRef[]
   groups: MunicipalityGroup[]
@@ -51,11 +49,6 @@ export interface MunicipalityCount {
 export interface MunicipalityRecordRef {
   record: OccurrenceRecord
   source: 'direct' | 'celmm'
-}
-
-export interface MunicipalityAssignmentRef extends MunicipalityRecordRef {
-  municipalityId: string
-  municipalityName: string
 }
 
 export interface MunicipalityGroupAssignment {
@@ -75,23 +68,14 @@ export interface MunicipalityAggregation {
   celmmGroups: number
   totalAssignments: number
   unresolvedGroups: number
-  totalLots: number
-  lotsWithMunicipality: number
-  directLots: number
-  celmmLots: number
-  unresolvedLots: number
-  groups: MunicipalityGroup[]
   mappedGroups: MunicipalityGroup[]
   directGroupItems: MunicipalityGroup[]
   celmmGroupItems: MunicipalityGroup[]
   unresolvedGroupItems: MunicipalityGroup[]
   groupAssignments: MunicipalityGroupAssignment[]
   missingGroupingRecords: OccurrenceRecord[]
-  mappedRecords: OccurrenceRecord[]
-  directRecordRefs: MunicipalityRecordRef[]
-  celmmRecordRefs: MunicipalityRecordRef[]
-  assignmentRefs: MunicipalityAssignmentRef[]
   unresolvedRecords: OccurrenceRecord[]
+  marineRecords: OccurrenceRecord[]
 }
 
 const maxNearestMunicipalityDistanceKm = 25
@@ -114,9 +98,10 @@ export function aggregateByMunicipality(
   const counts = new Map<string, MunicipalityCount>()
   const municipalitiesByName = buildMunicipalityNameMap(geojson)
   const unresolvedRecords: OccurrenceRecord[] = []
+  const marineRecords: OccurrenceRecord[] = []
 
   for (const record of records) {
-    if (hasExplicitCelmm(record.local)) {
+    if (isCelmmLocal(record.local)) {
       let added = false
 
       for (const municipality of celmmMunicipalities) {
@@ -144,12 +129,13 @@ export function aggregateByMunicipality(
       continue
     }
 
-    const localResolution = resolveLocalCoordinates(record.local)
-
-    if (localResolution?.isCelmm) {
-      unresolvedRecords.push(record)
+    // Coordenada da planilha vale mais que o nome do local: se cai no mar, é marinho.
+    if (record.latitude !== null && record.longitude !== null && geojson && isOffshore(geojson, record.latitude, record.longitude)) {
+      marineRecords.push(record)
       continue
     }
+
+    const localResolution = resolveLocalCoordinates(record.local)
 
     if (localResolution?.municipality) {
       const feature = municipalitiesByName.get(normalizeText(localResolution.municipality))
@@ -163,10 +149,6 @@ export function aggregateByMunicipality(
   }
 
   const values = Array.from(counts.values())
-  const mappedRecords = new Map<string, OccurrenceRecord>()
-  const directRecords = new Map<string, MunicipalityRecordRef>()
-  const celmmRecords = new Map<string, MunicipalityRecordRef>()
-  const assignmentRefs: MunicipalityAssignmentRef[] = []
   const groupAssignments: MunicipalityGroupAssignment[] = []
 
   for (const item of values) {
@@ -175,8 +157,6 @@ export function aggregateByMunicipality(
     item.direct = item.groups.filter((group) => group.direct > 0).length
     item.celmm = item.groups.filter((group) => group.celmm > 0).length
     item.lotTotal = item.records.length
-    item.directLots = item.records.filter((ref) => ref.source === 'direct').length
-    item.celmmLots = item.records.filter((ref) => ref.source === 'celmm').length
     item.missingGroupingLots = item.records.filter(
       ({ record }) => !getGroupIdentity(record, grouping),
     ).length
@@ -187,22 +167,6 @@ export function aggregateByMunicipality(
         municipalityName: item.name,
         group,
       })
-    }
-
-    for (const recordRef of item.records) {
-      const { record, source } = recordRef
-      mappedRecords.set(record.id, record)
-      assignmentRefs.push({
-        ...recordRef,
-        municipalityId: item.id,
-        municipalityName: item.name,
-      })
-
-      if (source === 'direct') {
-        directRecords.set(record.id, recordRef)
-      } else {
-        celmmRecords.set(record.id, recordRef)
-      }
     }
   }
 
@@ -231,23 +195,14 @@ export function aggregateByMunicipality(
     celmmGroups: celmmGroupItems.length,
     totalAssignments: groupAssignments.length,
     unresolvedGroups: unresolvedGroupItems.length,
-    totalLots: records.length,
-    lotsWithMunicipality: mappedRecords.size,
-    directLots: directRecords.size,
-    celmmLots: celmmRecords.size,
-    unresolvedLots: unresolvedRecords.length,
-    groups,
     mappedGroups,
     directGroupItems,
     celmmGroupItems,
     unresolvedGroupItems,
     groupAssignments,
     missingGroupingRecords,
-    mappedRecords: Array.from(mappedRecords.values()),
-    directRecordRefs: Array.from(directRecords.values()),
-    celmmRecordRefs: Array.from(celmmRecords.values()),
-    assignmentRefs,
     unresolvedRecords,
+    marineRecords,
   }
 }
 
@@ -338,12 +293,6 @@ function getGroupIdentity(
   return normalized ? { key: `${grouping}:${normalized}`, label: value } : null
 }
 
-function hasExplicitCelmm(local: string): boolean {
-  const normalizedLocal = normalizeText(local)
-
-  return ['celmm', 'mundau', 'manguaba'].some((term) => normalizedLocal.includes(term))
-}
-
 export const defaultMunicipalityAccentColor = '#5b0633'
 export const municipalityEmptyColor = '#f4f1e8'
 
@@ -380,6 +329,23 @@ export function getMunicipalityColor(
   return mixWithWhite(validAccent, 0.62)
 }
 
+// Faixas de contagem que caem na mesma cor, para a legenda do mapa (ex.: 1, 2–3, 4–5).
+export function municipalityColorScale(
+  max: number,
+  accentColor = defaultMunicipalityAccentColor,
+): Array<{ from: number; to: number; color: string }> {
+  const scale: Array<{ from: number; to: number; color: string }> = []
+
+  for (let count = 1; count <= max; count += 1) {
+    const color = getMunicipalityColor(count, max, accentColor)
+    const last = scale.at(-1)
+    if (last?.color === color) last.to = count
+    else scale.push({ from: count, to: count, color })
+  }
+
+  return scale
+}
+
 function mixWithWhite(color: string, amount: number): string {
   const channels = [1, 3, 5].map((start) => Number.parseInt(color.slice(start, start + 2), 16))
   const mixed = channels.map((channel) => Math.round(channel + (255 - channel) * amount))
@@ -399,13 +365,17 @@ function buildMunicipalityNameMap(
   return map
 }
 
+export function getMunicipalityFeatureId(feature: MunicipalityFeature): string {
+  return feature.properties.id ?? feature.properties.codarea ?? feature.properties.name
+}
+
 function increment(
   counts: Map<string, MunicipalityCount>,
   feature: MunicipalityFeature,
   record: OccurrenceRecord,
   kind: 'direct' | 'celmm',
 ): void {
-  const id = feature.properties.id ?? feature.properties.codarea ?? feature.properties.name
+  const id = getMunicipalityFeatureId(feature)
   const existing =
     counts.get(id) ??
     ({
@@ -415,8 +385,6 @@ function increment(
       celmm: 0,
       total: 0,
       lotTotal: 0,
-      directLots: 0,
-      celmmLots: 0,
       missingGroupingLots: 0,
       records: [],
       groups: [],
@@ -441,15 +409,74 @@ function findFeatureForPoint(
   return findNearestFeature(geojson, latitude, longitude)
 }
 
+// Ponto garantidamente dentro do município (o centroide de um polígono côncavo pode cair fora dele).
+// Usa o maior anel externo: o centroide se estiver dentro; senão, o meio do maior trecho
+// interno da linha horizontal que passa por ele.
+export function municipalityInteriorPoint(feature: MunicipalityFeature): { latitude: number; longitude: number } {
+  const ring = featurePolygons(feature)
+    .map((polygon) => polygon[0])
+    .reduce((largest, current) => (current.length > largest.length ? current : largest))
+  const longitude = ring.reduce((sum, [x]) => sum + x, 0) / ring.length
+  const latitude = ring.reduce((sum, [, y]) => sum + y, 0) / ring.length
+
+  if (pointInRing(longitude, latitude, ring)) {
+    return { latitude, longitude }
+  }
+
+  const crossings: number[] = []
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i]
+    const [xj, yj] = ring[j]
+    if (yi > latitude !== yj > latitude) crossings.push(((xj - xi) * (latitude - yi)) / (yj - yi) + xi)
+  }
+  crossings.sort((a, b) => a - b)
+
+  let best = { start: crossings[0], end: crossings[1] }
+  for (let index = 2; index + 1 < crossings.length; index += 2) {
+    if (crossings[index + 1] - crossings[index] > best.end - best.start) {
+      best = { start: crossings[index], end: crossings[index + 1] }
+    }
+  }
+
+  return { latitude, longitude: (best.start + best.end) / 2 }
+}
+
+function featurePolygons(feature: MunicipalityFeature): number[][][][] {
+  return feature.geometry.type === 'Polygon'
+    ? [feature.geometry.coordinates as number[][][]]
+    : (feature.geometry.coordinates as number[][][][])
+}
+
+// No mar ao largo de Alagoas: na mesma latitude há terra do estado só a oeste.
+// Nessas latitudes o leste de Alagoas é só oceano; PE, SE e BA ficam ao norte, sul ou oeste.
+function isOffshore(geojson: MunicipalityFeatureCollection, latitude: number, longitude: number): boolean {
+  let landToWest = false
+
+  for (const feature of geojson.features) {
+    for (const polygon of featurePolygons(feature)) {
+      for (const ring of polygon) {
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+          const [xi, yi] = ring[i]
+          const [xj, yj] = ring[j]
+          if (yi > latitude === yj > latitude) continue
+
+          const crossingLongitude = ((xj - xi) * (latitude - yi)) / (yj - yi) + xi
+          if (crossingLongitude > longitude) return false
+          landToWest = true
+        }
+      }
+    }
+  }
+
+  return landToWest
+}
+
 function featureContainsPoint(
   feature: MunicipalityFeature,
   latitude: number,
   longitude: number,
 ): boolean {
-  const polygons =
-    feature.geometry.type === 'Polygon'
-      ? [feature.geometry.coordinates as number[][][]]
-      : (feature.geometry.coordinates as number[][][][])
+  const polygons = featurePolygons(feature)
 
   return polygons.some((polygon) => {
     const outerRing = polygon[0]
@@ -502,10 +529,7 @@ function distanceToFeatureKm(
   latitude: number,
   longitude: number,
 ): number {
-  const polygons =
-    feature.geometry.type === 'Polygon'
-      ? [feature.geometry.coordinates as number[][][]]
-      : (feature.geometry.coordinates as number[][][][])
+  const polygons = featurePolygons(feature)
 
   return polygons.reduce((featureMin, polygon) => {
     const ringMin = polygon.reduce((polygonMin, ring) => {
