@@ -50,6 +50,42 @@ describe('checkNamesInWorms', () => {
     expect(results[2].matchedName).toBe('Ocypode quadrata')
   })
 
+  it('runs up to 3 batches at a time, reports progress and remembers checked names', async () => {
+    let inFlight = 0
+    let maxInFlight = 0
+    let calls = 0
+    const slowFetch = (async () => {
+      calls += 1
+      inFlight += 1
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      inFlight -= 1
+      return new Response(null, { status: 204 })
+    }) as typeof fetch
+    const names = Array.from({ length: 220 }, (_, index) => `Paralelo ${index}`)
+    const progress: number[] = []
+
+    await checkNamesInWorms(names, slowFetch, (done) => progress.push(done))
+    await checkNamesInWorms(names, slowFetch)
+
+    expect(maxInFlight).toBe(3)
+    expect(calls).toBe(5)
+    expect(progress.at(-1)).toBe(220)
+  })
+
+  it('retries a failed batch once before giving up', async () => {
+    let calls = 0
+    const flakyFetch = (async () => {
+      calls += 1
+      return calls === 1 ? new Response(null, { status: 503 }) : new Response(null, { status: 204 })
+    }) as typeof fetch
+
+    const results = await checkNamesInWorms(['Tentativa 1'], flakyFetch)
+
+    expect(calls).toBe(2)
+    expect(results[0].status).toBe('not_found')
+  })
+
   it('splits long lists into batches of 50 names', async () => {
     let calls = 0
     const fakeFetch = (async () => {

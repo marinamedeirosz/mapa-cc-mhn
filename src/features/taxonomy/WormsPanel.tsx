@@ -19,16 +19,17 @@ export function WormsPanel({ records }: { records: OccurrenceRecord[] }) {
   const names = useMemo(() => uniqueSorted(records.map((record) => record.species)), [records])
   const namesKey = names.join('|')
   const [checked, setChecked] = useState<{ key: string; results: WormsCheck[] } | null>(null)
-  const [isChecking, setIsChecking] = useState(false)
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const isChecking = progress !== null
   const [error, setError] = useState('')
   // Resultado de outra planilha (ou de outra lista de nomes) não vale para a atual.
   const results = checked?.key === namesKey ? checked.results : null
 
   async function handleCheck() {
-    setIsChecking(true)
+    setProgress({ done: 0, total: names.length })
     setError('')
     try {
-      const checks = await checkNamesInWorms(names)
+      const checks = await checkNamesInWorms(names, fetch, (done, total) => setProgress({ done, total }))
       setChecked({
         key: namesKey,
         results: checks.sort((a, b) => statusInfo[a.status].order - statusInfo[b.status].order || a.name.localeCompare(b.name, 'pt-BR')),
@@ -36,7 +37,7 @@ export function WormsPanel({ records }: { records: OccurrenceRecord[] }) {
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Não foi possível consultar o WoRMS.')
     } finally {
-      setIsChecking(false)
+      setProgress(null)
     }
   }
 
@@ -56,7 +57,7 @@ export function WormsPanel({ records }: { records: OccurrenceRecord[] }) {
             Nomes científicos no WoRMS
           </CardTitle>
           <Button type="button" variant="outline" onClick={handleCheck} disabled={isChecking}>
-            {isChecking ? 'Consultando...' : `Conferir ${names.length} nome(s)`}
+            {progress ? `Consultando ${progress.done} de ${progress.total}...` : `Conferir ${names.length} nome(s)`}
           </Button>
         </div>
         <p className="text-sm text-muted-foreground">
