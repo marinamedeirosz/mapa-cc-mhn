@@ -2,6 +2,7 @@ import { Database } from 'lucide-react'
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { ColumnSplitter } from '@/components/ColumnSplitter'
+import { FullscreenButton, FullscreenRegion } from '@/components/FullscreenRegion'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -200,6 +201,7 @@ function App() {
       >
         <section className="flex min-w-0 flex-col gap-4 xl:min-h-0">
           {records.length === 0 ? <EmptyState /> : null}
+          <FullscreenRegion title="Mapa" className="flex flex-col xl:min-h-0 xl:flex-1">
           <OccurrenceMap
             records={filteredRecords}
             mode={state.mapMode}
@@ -214,25 +216,32 @@ function App() {
               dispatch({ type: 'filters:update', filters: { ...state.filters, mapSelection } })
             }
           />
+          </FullscreenRegion>
           {records.length > 0 ? (
-            <YearTimelineCard
-              years={years}
-              undated={undatedRecords}
-              filters={state.filters}
-              onSelect={(year) => dispatch({ type: 'filters:update', filters: toggleYear(state.filters, year) })}
-            />
+            <FullscreenRegion title="Lotes por ano de coleta">
+              <YearTimelineCard
+                years={years}
+                undated={undatedRecords}
+                filters={state.filters}
+                onSelect={(year) => dispatch({ type: 'filters:update', filters: toggleYear(state.filters, year) })}
+              />
+            </FullscreenRegion>
           ) : null}
         </section>
 
         <ColumnSplitter containerRef={columnsRef} value={split} onChange={setSplit} />
 
-        <Tabs defaultValue="lots" className="min-w-0 xl:min-h-0">
-          <TabsList>
-            <TabsTrigger value="lots">Lotes ({tableRecords.length})</TabsTrigger>
-            <TabsTrigger value="distributions">Distribuições</TabsTrigger>
-            <TabsTrigger value="worms">WoRMS</TabsTrigger>
-          </TabsList>
-          <TabsContent value="lots" className="xl:min-h-0 xl:flex-1">
+        <FullscreenRegion title="Lotes, distribuições e WoRMS" className="flex flex-col xl:min-h-0">
+        <Tabs defaultValue="lots" className="fullscreen-fill min-w-0 xl:min-h-0 xl:flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <TabsList>
+              <TabsTrigger value="lots">Lotes ({tableRecords.length})</TabsTrigger>
+              <TabsTrigger value="distributions">Distribuições</TabsTrigger>
+              <TabsTrigger value="worms">WoRMS</TabsTrigger>
+            </TabsList>
+            <FullscreenButton />
+          </div>
+          <TabsContent value="lots" className="fullscreen-fill xl:min-h-0 xl:flex-1">
             <ResultsTable
               records={tableRecords}
               quickSearch={state.filters.quickSearch}
@@ -240,7 +249,7 @@ function App() {
               onLocate={(record) => setFocus({ record, requestedAt: Date.now() })}
             />
           </TabsContent>
-          <TabsContent value="distributions" className="xl:min-h-0 xl:flex-1 xl:overflow-auto">
+          <TabsContent value="distributions" className="fullscreen-fill overflow-auto xl:min-h-0 xl:flex-1">
             <StatsPanel
               stats={stats}
               filters={state.filters}
@@ -249,10 +258,11 @@ function App() {
               }
             />
           </TabsContent>
-          <TabsContent value="worms" className="xl:min-h-0 xl:flex-1 xl:overflow-auto">
+          <TabsContent value="worms" className="fullscreen-fill overflow-auto xl:min-h-0 xl:flex-1">
             <WormsPanel records={records} />
           </TabsContent>
         </Tabs>
+        </FullscreenRegion>
       </div>
 
       <FiltersPanel

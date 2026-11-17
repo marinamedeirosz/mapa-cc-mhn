@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge'
+import { FullscreenButton } from '@/components/FullscreenRegion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { normalizeText } from '@/lib/text'
 import { cn } from '@/lib/utils'
@@ -49,13 +50,14 @@ export function YearTimelineCard({
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+        <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-sm">
           Lotes por ano de coleta
-          <span className="font-normal text-muted-foreground">
+          <span className="ml-auto font-normal text-muted-foreground">
             {[emptyYears > 0 && `${emptyYears} ano(s) sem coleta`, undated > 0 && `${undated} lote(s) sem data`]
               .filter(Boolean)
               .join(' · ')}
           </span>
+          <FullscreenButton className="-my-2" />
         </CardTitle>
       </CardHeader>
       {/* overflow-hidden: uma faixa de anos enorme nunca pode alargar a página */}
@@ -65,7 +67,7 @@ export function YearTimelineCard({
         ) : (
           <div className="grid gap-1">
             <div className="text-xs text-muted-foreground">máx. {max}</div>
-            <div className="grid h-16 items-stretch border-b" style={{ ...columns, gap: years.length > 100 ? 0 : 2 }}>
+            <div className="fullscreen-tall grid h-16 items-stretch border-b" style={{ ...columns, gap: years.length > 100 ? 0 : 2 }}>
               {years.map(({ year, count }) => {
                 const isSelected = year === selected
 

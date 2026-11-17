@@ -121,7 +121,7 @@ export function ResultsTable({ records, quickSearch, onQuickSearchChange, onLoca
 
   return (
     // Todos os lotes filtrados numa lista que rola, com o cabeçalho fixo (a planilha já está toda na memória).
-    <Card className="flex flex-col xl:h-full">
+    <Card className="fullscreen-full-height flex flex-col xl:h-full">
       <CardHeader className="gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <CardTitle className="sr-only">Tabela de resultados</CardTitle>
@@ -154,7 +154,7 @@ export function ResultsTable({ records, quickSearch, onQuickSearchChange, onLoca
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-hidden rounded-md border">
-          <Table containerClassName="max-h-[70svh] xl:h-full xl:max-h-none">
+          <Table containerClassName="fullscreen-full-height max-h-[70svh] xl:h-full xl:max-h-none">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>

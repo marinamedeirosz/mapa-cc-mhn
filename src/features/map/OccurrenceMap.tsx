@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { CircleMarker, MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { FullscreenButton } from '@/components/FullscreenRegion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -165,7 +166,7 @@ export function OccurrenceMap({
   }, [accentColor])
 
   return (
-    <Card ref={cardRef} className='flex min-h-[460px] scroll-mt-4 flex-col overflow-hidden xl:min-h-[360px] xl:flex-1'>
+    <Card ref={cardRef} className='fullscreen-fill flex min-h-[460px] scroll-mt-4 flex-col overflow-hidden xl:min-h-[360px] xl:flex-1'>
       {/* Uma linha só: as abas de modo já dizem que é o mapa; os controles do modo ficam à direita. */}
       <CardHeader className='flex flex-row flex-wrap items-center justify-between gap-2 px-4 py-3'>
         <CardTitle className='sr-only'>Mapa</CardTitle>
@@ -231,6 +232,7 @@ export function OccurrenceMap({
             </Popover>
           </div>
         ) : null}
+        <FullscreenButton className='ml-auto' />
       </CardHeader>
       {mode === 'municipalities' && (municipalityAggregation || !mapError) ? (
         <MunicipalityLegend
@@ -239,7 +241,7 @@ export function OccurrenceMap({
           onMetricClick={setSelectedMetric}
         />
       ) : null}
-      <CardContent className='relative h-[460px] p-0 xl:h-auto xl:flex-1'>
+      <CardContent className='fullscreen-fill relative h-[460px] p-0 xl:h-auto xl:flex-1'>
         <MapContainer center={alagoasCenter} zoom={8} scrollWheelZoom className='z-0'>
           {mode !== 'municipalities' ? (
             <TileLayer
