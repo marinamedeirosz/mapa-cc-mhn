@@ -58,13 +58,14 @@ export function YearTimelineCard({
           </span>
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      {/* overflow-hidden: uma faixa de anos enorme nunca pode alargar a página */}
+      <CardContent className="overflow-hidden">
         {years.length === 0 ? (
           <span className="text-sm text-muted-foreground">Sem datas para mostrar.</span>
         ) : (
           <div className="grid gap-1">
             <div className="text-xs text-muted-foreground">máx. {max}</div>
-            <div className="grid h-16 items-stretch gap-[2px] border-b" style={columns}>
+            <div className="grid h-16 items-stretch border-b" style={{ ...columns, gap: years.length > 100 ? 0 : 2 }}>
               {years.map(({ year, count }) => {
                 const isSelected = year === selected
 
