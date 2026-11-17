@@ -1,5 +1,5 @@
 import L from 'leaflet'
-import { ChevronDown, Download, Filter, Layers, Map as MapIcon, MapPin, Palette, RotateCcw, Tags } from 'lucide-react'
+import { ChevronDown, Download, EllipsisVertical, Filter, Layers, Map as MapIcon, MapPin, Palette, RotateCcw, Tags } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CircleMarker, MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import { Badge } from '@/components/ui/badge'
@@ -75,6 +75,7 @@ export function OccurrenceMap({
   const [isExportingMunicipalityMap, setIsExportingMunicipalityMap] = useState(false)
   const [exportError, setExportError] = useState('')
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false)
+  const [isOptionsMenuOpen, setIsOptionsMenuOpen] = useState(false)
   const mapError = geojsonError || exportError
   const [grouping, setGrouping] = useState<MunicipalityGrouping>('lot')
   const [accentColor, setAccentColor] = useState(loadStoredAccentColor)
@@ -165,72 +166,102 @@ export function OccurrenceMap({
     }
   }, [accentColor])
 
+  const exportOptions = (
+    <>
+      <ExportOption
+        title='Imagem PNG'
+        description='Para slides, documentos e mensagens. Alta resolução (3200 × 1800).'
+        onClick={() => {
+          setIsExportMenuOpen(false)
+          setIsOptionsMenuOpen(false)
+          void handleExportMunicipalityMap('png')
+        }}
+      />
+      <ExportOption
+        title='Vetorial SVG'
+        description='Para artigos, pôsteres e edição no Illustrator ou Inkscape. Não perde qualidade ao ampliar.'
+        onClick={() => {
+          setIsExportMenuOpen(false)
+          setIsOptionsMenuOpen(false)
+          void handleExportMunicipalityMap('svg')
+        }}
+      />
+    </>
+  )
+
   return (
     <Card ref={cardRef} className='fullscreen-fill flex min-h-[460px] scroll-mt-4 flex-col overflow-hidden xl:min-h-[360px] xl:flex-1'>
-      {/* Uma linha só: as abas de modo já dizem que é o mapa; os controles do modo ficam à direita. */}
-      <CardHeader className='flex flex-row flex-wrap items-center justify-between gap-2 px-4 py-3'>
+      {/*
+        Sempre uma linha só. Conforme a largura do próprio cabeçalho (container query), primeiro o Exportar
+        fica só com ícone, depois as abas, e só no fim os controles vão para o menu ⋮.
+        Larguras medidas: completo 778 px, Exportar só ícone 708 px, abas só ícone 498 px.
+      */}
+      <CardHeader className='@container flex flex-row flex-nowrap items-center gap-2 px-4 py-3'>
         <CardTitle className='sr-only'>Mapa</CardTitle>
         <Tabs value={mode} onValueChange={(value) => onModeChange(value as MapMode)}>
           <TabsList>
-            <TabsTrigger value='heatmap' className='px-2.5'><Layers /> Pontos</TabsTrigger>
-            <TabsTrigger value='municipalities' className='px-2.5'><MapIcon /> Municípios</TabsTrigger>
-            <TabsTrigger value='markers' className='px-2.5'><MapPin /> Lotes</TabsTrigger>
+            <TabsTrigger value='heatmap' className='px-2.5' title='Pontos'><Layers /> <span className='@max-[716px]:sr-only'>Pontos</span></TabsTrigger>
+            <TabsTrigger value='municipalities' className='px-2.5' title='Municípios'><MapIcon /> <span className='@max-[716px]:sr-only'>Municípios</span></TabsTrigger>
+            <TabsTrigger value='markers' className='px-2.5' title='Lotes'><MapPin /> <span className='@max-[716px]:sr-only'>Lotes</span></TabsTrigger>
           </TabsList>
         </Tabs>
         {mode === 'municipalities' ? (
-          <div className='flex flex-wrap items-center justify-end gap-2'>
-            <div className='flex h-9 items-center gap-2'>
-              <Label htmlFor='municipality-grouping' className='sr-only'>
-                Agrupar por
-              </Label>
-              <Select
-                id='municipality-grouping'
-                className='w-36'
-                value={grouping}
-                onChange={(event) => handleGroupingChange(event.target.value as MunicipalityGrouping)}
-              >
-                <option value='lot'>Agrupar: lotes</option>
-                <option value='family'>Agrupar: famílias</option>
-                <option value='species'>Agrupar: espécies</option>
-              </Select>
+          <>
+            <div className='flex flex-nowrap items-center gap-2 @max-[506px]:hidden'>
+              <GroupingSelect id='municipality-grouping' value={grouping} onChange={handleGroupingChange} />
+              <AccentColorPicker value={accentColor} onChange={setAccentColor} />
+              <NamesToggle value={showMunicipalityLabels} onChange={setShowMunicipalityLabels} />
+              <Popover open={isExportMenuOpen} onOpenChange={setIsExportMenuOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type='button'
+                    className='h-9 px-3'
+                    disabled={!canExportMunicipalityMap || isExportingMunicipalityMap}
+                    aria-label='Exportar mapa'
+                    title='Exportar mapa'
+                  >
+                    <Download />
+                    <span className='@max-[786px]:sr-only'>{isExportingMunicipalityMap ? 'Exportando...' : 'Exportar'}</span>
+                    <ChevronDown />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align='end' className='w-72 p-1'>
+                  {exportOptions}
+                </PopoverContent>
+              </Popover>
             </div>
-            <AccentColorPicker value={accentColor} onChange={setAccentColor} />
-            <Button
-              type='button'
-              variant={showMunicipalityLabels ? 'secondary' : 'outline'}
-              className='h-9 px-3'
-              onClick={() => setShowMunicipalityLabels((value) => !value)}
-            >
-              <Tags /> Nomes
-            </Button>
-            <Popover open={isExportMenuOpen} onOpenChange={setIsExportMenuOpen}>
+            <Popover open={isOptionsMenuOpen} onOpenChange={setIsOptionsMenuOpen}>
               <PopoverTrigger asChild>
-                <Button type='button' className='h-9 px-3' disabled={!canExportMunicipalityMap || isExportingMunicipalityMap}>
-                  <Download />
-                  {isExportingMunicipalityMap ? 'Exportando...' : 'Exportar'}
-                  <ChevronDown />
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='icon'
+                  className='hidden size-9 @max-[506px]:inline-flex'
+                  aria-label='Opções do mapa municipal'
+                  title='Opções do mapa municipal'
+                >
+                  <EllipsisVertical />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align='end' className='w-72 p-1'>
-                <ExportOption
-                  title='Imagem PNG'
-                  description='Para slides, documentos e mensagens. Alta resolução (3200 × 1800).'
-                  onClick={() => {
-                    setIsExportMenuOpen(false)
-                    void handleExportMunicipalityMap('png')
-                  }}
-                />
-                <ExportOption
-                  title='Vetorial SVG'
-                  description='Para artigos, pôsteres e edição no Illustrator ou Inkscape. Não perde qualidade ao ampliar.'
-                  onClick={() => {
-                    setIsExportMenuOpen(false)
-                    void handleExportMunicipalityMap('svg')
-                  }}
-                />
+              <PopoverContent align='end' className='grid w-72 gap-3 p-3'>
+                <div className='grid gap-1.5'>
+                  <GroupingSelect id='municipality-grouping-menu' value={grouping} onChange={handleGroupingChange} showLabel />
+                </div>
+                <div className='flex items-center justify-between gap-2'>
+                  <span className='text-sm font-medium'>Cor do mapa</span>
+                  <AccentColorPicker value={accentColor} onChange={setAccentColor} />
+                </div>
+                <div className='flex items-center justify-between gap-2'>
+                  <span className='text-sm font-medium'>Nomes dos municípios</span>
+                  <NamesToggle value={showMunicipalityLabels} onChange={setShowMunicipalityLabels} />
+                </div>
+                <div className='grid gap-1 border-t pt-2'>
+                  <span className='px-1 text-sm font-medium'>Exportar mapa</span>
+                  {exportOptions}
+                </div>
               </PopoverContent>
             </Popover>
-          </div>
+          </>
         ) : null}
         <FullscreenButton className='ml-auto' />
       </CardHeader>
@@ -324,6 +355,49 @@ type MetricDetail =
   | { type: 'assignments'; title: string; description: string; assignments: MunicipalityGroupAssignment[] }
   | { type: 'records'; title: string; description: string; records: OccurrenceRecord[] }
   | { type: 'names'; title: string; description: string; names: string[] }
+
+function GroupingSelect({
+  id,
+  value,
+  onChange,
+  showLabel = false,
+}: {
+  id: string
+  value: MunicipalityGrouping
+  onChange: (value: MunicipalityGrouping) => void
+  showLabel?: boolean
+}) {
+  return (
+    <>
+      <Label htmlFor={id} className={showLabel ? undefined : 'sr-only'}>
+        Agrupar por
+      </Label>
+      <Select id={id} className='w-36' value={value} onChange={(event) => onChange(event.target.value as MunicipalityGrouping)}>
+        <option value='lot'>Agrupar: lotes</option>
+        <option value='family'>Agrupar: famílias</option>
+        <option value='species'>Agrupar: espécies</option>
+      </Select>
+    </>
+  )
+}
+
+function NamesToggle({ value, onChange }: { value: boolean; onChange: (value: boolean) => void }) {
+  const label = value ? 'Ocultar nomes dos municípios' : 'Mostrar nomes dos municípios'
+  return (
+    <Button
+      type='button'
+      variant={value ? 'secondary' : 'outline'}
+      size='icon'
+      className='size-9'
+      aria-label={label}
+      aria-pressed={value}
+      title={label}
+      onClick={() => onChange(!value)}
+    >
+      <Tags />
+    </Button>
+  )
+}
 
 function AccentColorPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
