@@ -82,6 +82,18 @@ export function OccurrenceMap({
     [records],
   )
   // Memorizado: um array novo a cada render faria a camada de calor ser recriada (abrir um diálogo, trocar a cor...).
+  // Vários lotes no mesmo ponto (ex.: o centro de um município) viram um marcador só, com a contagem.
+  // Na coleção real, 5.750 lotes caíam em apenas 31 pontos, empilhados e impossíveis de clicar.
+  const markerGroups = useMemo(() => {
+    const groups = new Map<string, OccurrenceRecord[]>()
+    for (const record of positionedRecords) {
+      const key = `${record.latitude},${record.longitude}`
+      const group = groups.get(key)
+      if (group) group.push(record)
+      else groups.set(key, [record])
+    }
+    return Array.from(groups.values(), (records) => ({ records, icon: markerIcon(records) }))
+  }, [positionedRecords])
   const heatPoints = useMemo(
     () => positionedRecords.map((record) => [record.latitude!, record.longitude!, 1] as [number, number, number]),
     [positionedRecords],
@@ -258,25 +270,9 @@ export function OccurrenceMap({
               ))
             : null}
           {mode === 'markers'
-            ? positionedRecords.map((record) => (
-                <Marker
-                  key={record.id}
-                  position={[record.latitude!, record.longitude!]}
-                  icon={record.positionSource === 'local_fallback' ? localFallbackIcon : coordinatesIcon}
-                >
-                  <Popup>
-                    <div className='grid min-w-56 gap-1 text-sm'>
-                      <strong>{record.code || 'Sem código'}</strong>
-                      <span>{record.family || 'Família não informada'} · <em>{record.species || 'Espécie não informada'}</em></span>
-                      <span>{record.local || 'Local não informado'}</span>
-                      <span>{record.dateText || 'Sem data'}</span>
-                      <span className='text-muted-foreground'>
-                        {record.positionSource === 'local_fallback'
-                          ? `Posição aproximada: ${record.positionLabel}`
-                          : 'Coordenadas da planilha'}
-                      </span>
-                    </div>
-                  </Popup>
+            ? markerGroups.map(({ records: group, icon }) => (
+                <Marker key={group[0].id} position={[group[0].latitude!, group[0].longitude!]} icon={icon}>
+                  <Popup>{group.length === 1 ? <LotPopup record={group[0]} /> : <LotGroupPopup records={group} />}</Popup>
                 </Marker>
               ))
             : null}
@@ -916,3 +912,59 @@ function FocusedRecord({ focus }: { focus: RecordFocus | null }) {
 
 const coordinatesIcon = L.divIcon({ className: 'occurrence-marker', html: '', iconSize: [18, 18], iconAnchor: [9, 9] })
 const localFallbackIcon = L.divIcon({ className: 'occurrence-marker local-fallback', html: '', iconSize: [18, 18], iconAnchor: [9, 9] })
+const groupPopupLimit = 50
+
+function markerIcon(records: OccurrenceRecord[]) {
+  const approximate = records.every((record) => record.positionSource === 'local_fallback')
+  if (records.length === 1) return approximate ? localFallbackIcon : coordinatesIcon
+
+  const size = records.length < 100 ? 28 : records.length < 1000 ? 34 : 40
+  return L.divIcon({
+    className: `occurrence-marker ${approximate ? 'local-fallback' : ''}`,
+    html: `<span>${records.length}</span>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  })
+}
+
+function LotPopup({ record }: { record: OccurrenceRecord }) {
+  return (
+    <div className='grid min-w-56 gap-1 text-sm'>
+      <strong>{record.code || 'Sem código'}</strong>
+      <span>{record.family || 'Família não informada'} · <em>{record.species || 'Espécie não informada'}</em></span>
+      <span>{record.local || 'Local não informado'}</span>
+      <span>{record.dateText || 'Sem data'}</span>
+      <span className='text-muted-foreground'>
+        {record.positionSource === 'local_fallback' ? `Posição aproximada: ${record.positionLabel}` : 'Coordenadas da planilha'}
+      </span>
+    </div>
+  )
+}
+
+function LotGroupPopup({ records }: { records: OccurrenceRecord[] }) {
+  const first = records[0]
+
+  return (
+    <div className='grid min-w-64 gap-2 text-sm'>
+      <div className='grid gap-0.5'>
+        <strong>{records.length} lotes neste ponto</strong>
+        <span className='text-muted-foreground'>
+          {first.positionSource === 'local_fallback' ? `Posição aproximada: ${first.positionLabel}` : 'Coordenadas da planilha'}
+        </span>
+      </div>
+      <ul className='grid max-h-56 gap-1 overflow-auto pr-1'>
+        {records.slice(0, groupPopupLimit).map((record) => (
+          <li key={record.id}>
+            <strong>{record.code || 'Sem código'}</strong> · <em>{record.species || record.family || 'Sem espécie'}</em>
+            {record.dateText ? ` · ${record.dateText}` : ''}
+          </li>
+        ))}
+      </ul>
+      {records.length > groupPopupLimit ? (
+        <span className='text-xs text-muted-foreground'>
+          E mais {records.length - groupPopupLimit} lotes. Use os filtros ou a tabela para ver todos.
+        </span>
+      ) : null}
+    </div>
+  )
+}
