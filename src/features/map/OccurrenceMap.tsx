@@ -875,10 +875,18 @@ function ExportOption({ title, description, onClick }: { title: string; descript
 function SizeWatcher() {
   const map = useMap()
 
+  // Espera o tamanho parar de mudar (ex.: arrastando a divisória) para recalcular o mapa uma vez só.
   useEffect(() => {
-    const observer = new ResizeObserver(() => map.invalidateSize())
+    let timer = 0
+    const observer = new ResizeObserver(() => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => map.invalidateSize(), 150)
+    })
     observer.observe(map.getContainer())
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      window.clearTimeout(timer)
+    }
   }, [map])
 
   return null

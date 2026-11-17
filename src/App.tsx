@@ -1,5 +1,7 @@
 import { Database } from 'lucide-react'
-import { useEffect, useMemo, useReducer, useState } from 'react'
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
+import { ColumnSplitter } from '@/components/ColumnSplitter'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -26,6 +28,7 @@ import {
   buildFilterOptions,
   initialFilters,
 } from '@/lib/filtering'
+import { loadSplit, saveSplit } from '@/lib/columnSplit'
 import { applyLocalMappings, loadLocalMappings, saveLocalMappings, type LocalMapping } from '@/lib/localMappings'
 import { buildStats, countByYear } from '@/lib/stats'
 import { normalizeText } from '@/lib/text'
@@ -105,6 +108,8 @@ function App() {
   const [isLocalsOpen, setIsLocalsOpen] = useState(false)
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
   const [isIssuesOpen, setIsIssuesOpen] = useState(false)
+  const columnsRef = useRef<HTMLDivElement>(null)
+  const [split, setSplit] = useState(loadSplit)
   const { geojson, error: geojsonError } = useMunicipalityGeojson()
   // Locais definidos pela curadoria posicionam lotes que a planilha e a base fixa não resolveram.
   const imported = useMemo(
@@ -115,6 +120,7 @@ function App() {
   const summary = imported?.summary ?? null
 
   useEffect(() => saveLocalMappings(localMappings), [localMappings])
+  useEffect(() => saveSplit(split), [split])
 
   const filterOptions = useMemo(() => buildFilterOptions(records), [records])
   const filteredRecords = useMemo(
@@ -187,7 +193,11 @@ function App() {
         />
       ) : null}
 
-      <div className="mx-auto grid w-full max-w-[1600px] flex-1 gap-4 px-4 py-4 xl:min-h-0 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div
+        ref={columnsRef}
+        className="mx-auto grid w-full max-w-[1600px] flex-1 gap-4 px-4 py-4 xl:min-h-0 xl:grid-cols-[minmax(0,var(--split))_auto_minmax(0,1fr)] xl:gap-1"
+        style={{ '--split': `${split * 100}%` } as CSSProperties}
+      >
         <section className="flex min-w-0 flex-col gap-4 xl:min-h-0">
           {records.length === 0 ? <EmptyState /> : null}
           <OccurrenceMap
@@ -213,6 +223,8 @@ function App() {
             />
           ) : null}
         </section>
+
+        <ColumnSplitter containerRef={columnsRef} value={split} onChange={setSplit} />
 
         <Tabs defaultValue="lots" className="min-w-0 xl:min-h-0">
           <TabsList>
