@@ -6,7 +6,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { ArrowUpDown, Crosshair, Download, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { downloadCsv, recordsToCsv, recordsToDarwinCoreCsv } from '@/lib/exportCsv'
 import type { OccurrenceRecord } from '@/types'
+
+const rowsPerBlock = 200
 
 interface ResultsTableProps {
   records: OccurrenceRecord[]
@@ -99,9 +101,26 @@ export function ResultsTable({ records, quickSearch, onQuickSearchChange, onLoca
     getSortedRowModel: getSortedRowModel(),
   })
 
+  // Desenha os lotes em blocos conforme a rolagem: com milhares de linhas no DOM, cada mudança no app
+  // levava segundos (medido com a coleção real, 7.497 lotes). Ordenação e busca continuam valendo para todos.
+  const allRows = table.getRowModel().rows
+  const [shown, setShown] = useState({ records, count: rowsPerBlock })
+  const visibleCount = shown.records === records ? shown.count : rowsPerBlock
+  const visibleRows = allRows.slice(0, visibleCount)
+  const moreRowsRef = useRef<HTMLTableRowElement>(null)
+
+  useEffect(() => {
+    const row = moreRowsRef.current
+    if (!row) return
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) setShown({ records, count: visibleCount + rowsPerBlock })
+    })
+    observer.observe(row)
+    return () => observer.disconnect()
+  }, [records, visibleCount])
+
   return (
     // Todos os lotes filtrados numa lista que rola, com o cabeçalho fixo (a planilha já está toda na memória).
-    // shortcut: desenha todas as linhas; com milhares de lotes pode ficar lento, aí vale virtualizar a lista.
     <Card className="flex flex-col xl:h-full">
       <CardHeader className="gap-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -150,8 +169,8 @@ export function ResultsTable({ records, quickSearch, onQuickSearchChange, onLoca
               ))}
             </TableHeader>
             <TableBody>
-              {table.getRowModel().rows.length ? (
-                table.getRowModel().rows.map((row) => (
+              {visibleRows.length ? (
+                visibleRows.map((row) => (
                   <TableRow key={row.id}>
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
@@ -167,6 +186,13 @@ export function ResultsTable({ records, quickSearch, onQuickSearchChange, onLoca
                   </TableCell>
                 </TableRow>
               )}
+              {visibleRows.length < allRows.length ? (
+                <TableRow ref={moreRowsRef}>
+                  <TableCell colSpan={columns.length} className="py-4 text-center text-xs text-muted-foreground">
+                    Mostrando {visibleRows.length} de {allRows.length} lotes. Role para ver mais.
+                  </TableCell>
+                </TableRow>
+              ) : null}
             </TableBody>
           </Table>
         </div>
