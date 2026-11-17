@@ -1,7 +1,20 @@
 const excelEpoch = Date.UTC(1899, 11, 30)
 const dayInMs = 24 * 60 * 60 * 1000
 
+// Ano fora disso é erro de digitação (ex.: "3/30/0200"). Células de data do Excel não existem antes de 1900:
+// abaixo disso é a "data zero" (1899-12-30/31) de uma célula só com horário.
+const minTextYear = 1800
+const minExcelYear = 1900
+
 export function parseDateCell(value: unknown): Date | null {
+  const date = readDate(value)
+  const minYear = value instanceof Date || typeof value === 'number' ? minExcelYear : minTextYear
+  const year = date?.getUTCFullYear() ?? 0
+
+  return date && year >= minYear && year <= new Date().getFullYear() ? date : null
+}
+
+function readDate(value: unknown): Date | null {
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
     return toDateOnly(value)
   }
@@ -18,7 +31,7 @@ export function parseDateCell(value: unknown): Date | null {
   const brMatch = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/)
   if (brMatch) {
     const [, first, second, year] = brMatch
-    const fullYear = Number(year.length === 2 ? `20${year}` : year)
+    const fullYear = year.length === 2 ? expandTwoDigitYear(Number(year)) : Number(year)
     const brazilianDate = safeDate(fullYear, Number(second), Number(first))
 
     if (brazilianDate) {
@@ -34,11 +47,8 @@ export function parseDateCell(value: unknown): Date | null {
     return safeDate(Number(year), Number(month), Number(day))
   }
 
-  const parsed = new Date(text)
-  if (!Number.isNaN(parsed.getTime())) {
-    return toDateOnly(parsed)
-  }
-
+  // Sem "chute" com new Date(texto): ele lia "Maio de 94" como 01/01/1994 e "Julho/199 4" como o ano 199,
+  // sem aviso. Formatos desconhecidos viram aviso de data não reconhecida para a curadoria corrigir.
   return null
 }
 
@@ -76,6 +86,11 @@ function safeDate(year: number, month: number, day: number): Date | null {
     date.getUTCDate() === day
 
   return valid ? date : null
+}
+
+// Coletas não ficam no futuro: "98" é 1998 e "25" é 2025.
+function expandTwoDigitYear(year: number): number {
+  return year > new Date().getFullYear() % 100 ? 1900 + year : 2000 + year
 }
 
 function toDateOnly(date: Date): Date {

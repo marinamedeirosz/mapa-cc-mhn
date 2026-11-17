@@ -90,6 +90,22 @@ textarea {
   font: inherit;
 }
 
+/* Tela cheia de uma região (FullscreenRegion): os elementos marcados esticam para ocupar o espaço do modal. */
+[data-expanded='true'] .fullscreen-fill {
+  flex: 1 1 0%;
+  height: auto;
+  min-height: 0;
+}
+
+[data-expanded='true'] .fullscreen-full-height {
+  height: 100%;
+  max-height: none;
+}
+
+[data-expanded='true'] .fullscreen-tall {
+  height: calc(100svh - 13rem);
+}
+
 .occurrence-marker {
   align-items: center;
   background: oklch(0.42 0.104 177);
@@ -100,6 +116,12 @@ textarea {
   height: 18px;
   justify-content: center;
   width: 18px;
+}
+
+.occurrence-marker span {
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .occurrence-marker.local-fallback {

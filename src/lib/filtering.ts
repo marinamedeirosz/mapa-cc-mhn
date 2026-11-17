@@ -3,6 +3,7 @@ import { includesNormalized, normalizeText, uniqueSorted } from '@/lib/text'
 import type { FilterOptions, Filters, OccurrenceRecord } from '@/types'
 
 export const initialFilters: Filters = {
+  mapSelection: null,
   dateStart: '',
   dateEnd: '',
   families: [],
@@ -27,8 +28,13 @@ export function applyFilters(records: OccurrenceRecord[], filters: Filters): Occ
   const species = toNormalizedSet(filters.species)
   const locals = toNormalizedSet(filters.locals)
   const observation = normalizeText(filters.observation)
+  const mapSelection = filters.mapSelection ? new Set(filters.mapSelection.recordIds) : null
 
   return records.filter((record) => {
+    if (mapSelection && !mapSelection.has(record.id)) {
+      return false
+    }
+
     if (dateStart && (!record.date || record.date < dateStart)) {
       return false
     }
@@ -79,6 +85,7 @@ export function applyQuickSearch(records: OccurrenceRecord[], query: string): Oc
 
 export function hasActiveFilters(filters: Filters): boolean {
   return (
+    Boolean(filters.mapSelection) ||
     Boolean(filters.dateStart) ||
     Boolean(filters.dateEnd) ||
     filters.families.length > 0 ||

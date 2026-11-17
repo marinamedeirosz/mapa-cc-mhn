@@ -25,6 +25,9 @@ describe('municipalityMapExport', () => {
     expect(getMunicipalityMapFileName('family', new Date(2026, 5, 7))).toBe(
       'mapa-municipios-alagoas-por-familias-2026-06-07.png',
     )
+    expect(getMunicipalityMapFileName('lot', new Date(2026, 5, 7), 'svg')).toBe(
+      'mapa-municipios-alagoas-por-lotes-2026-06-07.svg',
+    )
   })
 
   it('formats municipality labels with the total in parentheses', () => {
@@ -199,6 +202,23 @@ describe('municipalityMapExport', () => {
     expect(svg).not.toContain('Top municipios')
   })
 
+  it('draws marine lots as points and counts the ones outside the map', () => {
+    const svg = buildMunicipalityReportSvg({
+      geojson,
+      aggregation: {
+        ...aggregationWithCounts([['a', 'Maceio', 1]]),
+        marineRecords: [
+          { latitude: -9, longitude: -35 },
+          { latitude: -9, longitude: -20 },
+        ] as MunicipalityAggregation['marineRecords'],
+      },
+      showLabels: false,
+    })
+
+    expect(svg.match(/<circle/g)).toHaveLength(2)
+    expect(svg).toContain('Lotes marinhos: 2 (1 fora do recorte)')
+  })
+
   it('uses the selected accent color in the exported map', () => {
     const svg = buildMunicipalityReportSvg({
       geojson,
@@ -222,8 +242,6 @@ function aggregationWithCounts(items: Array<[string, string, number]>): Municipa
         celmm: 0,
         total,
         lotTotal: total,
-        directLots: total,
-        celmmLots: 0,
         missingGroupingLots: 0,
         records: [],
         groups: [],
@@ -243,23 +261,14 @@ function aggregationWithCounts(items: Array<[string, string, number]>): Municipa
     celmmGroups: 0,
     totalAssignments: totalMunicipalized,
     unresolvedGroups: 0,
-    totalLots: totalMunicipalized,
-    lotsWithMunicipality: totalMunicipalized,
-    directLots: totalMunicipalized,
-    celmmLots: 0,
-    unresolvedLots: 0,
-    groups: [],
     mappedGroups: [],
     directGroupItems: [],
     celmmGroupItems: [],
     unresolvedGroupItems: [],
     groupAssignments: [],
     missingGroupingRecords: [],
-    mappedRecords: [],
-    directRecordRefs: [],
-    celmmRecordRefs: [],
-    assignmentRefs: [],
     unresolvedRecords: [],
+    marineRecords: [],
   }
 }
 

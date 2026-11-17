@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx'
+import type { WorkSheet } from 'xlsx'
 import { resolveLocalCoordinates } from '@/data/localCoordinates'
 import { formatDate, parseDateCell } from '@/lib/dates'
 import { normalizeHeader, repairMojibake } from '@/lib/text'
@@ -21,16 +21,26 @@ const columnLabels: Record<RequiredColumn, string> = {
 
 type RawRow = Record<string, unknown>
 
-export async function parseSpreadsheetFile(file: File): Promise<ImportResult> {
+export async function parseSpreadsheetFile(file: File, requestedSheet?: string): Promise<ImportResult> {
+  // Carregado só aqui: a biblioteca tem centenas de kB e só é usada ao importar.
+  const XLSX = await import('xlsx')
   const workbook = XLSX.read(await file.arrayBuffer(), {
     type: 'array',
     cellDates: true,
+    // Em CSV, mantém o texto: sem isso o SheetJS lê datas como mês/dia e apaga zeros de códigos.
+    raw: true,
   })
-  const sheetName = workbook.SheetNames[0]
+  const sheetNames = workbook.SheetNames
 
-  if (!sheetName) {
+  if (sheetNames.length === 0) {
     throw new Error('A planilha não possui abas para importar.')
   }
+
+  // Sem aba pedida, usa a primeira com as colunas esperadas (pula abas de instruções, por exemplo).
+  const sheetName =
+    requestedSheet && sheetNames.includes(requestedSheet)
+      ? requestedSheet
+      : (sheetNames.find((name) => hasRequiredColumns(XLSX, workbook.Sheets[name])) ?? sheetNames[0])
 
   const sheet = workbook.Sheets[sheetName]
   const rows = XLSX.utils.sheet_to_json<RawRow>(sheet, {
@@ -46,15 +56,18 @@ export async function parseSpreadsheetFile(file: File): Promise<ImportResult> {
   const missingColumns = requiredColumns.filter((column) => !columnMap[column])
 
   if (missingColumns.length > 0) {
+    // SheetJS nomeia cabeçalhos vazios como __EMPTY.
+    const foundColumns = Object.keys(rows[0]).filter((header) => !header.startsWith('__EMPTY'))
     throw new Error(
       `Colunas obrigatórias ausentes: ${missingColumns
         .map((column) => columnLabels[column])
-        .join(', ')}.`,
+        .join(', ')}. Colunas encontradas: ${foundColumns.join(', ') || 'nenhuma'}.`,
     )
   }
 
   const dataRows = rows
-    .map((row, index) => ({ row, rowNumber: index + 2 }))
+    // sheet_to_json pula linhas vazias; __rowNum__ (base 0) guarda a linha real da planilha.
+    .map((row) => ({ row, rowNumber: (row.__rowNum__ as number) + 1 }))
     .filter(({ row }) => rowHasData(row))
 
   if (dataRows.length === 0) {
@@ -71,6 +84,8 @@ export async function parseSpreadsheetFile(file: File): Promise<ImportResult> {
     records,
     summary: {
       fileName: file.name,
+      sheetName,
+      sheetNames,
       totalRows: records.length,
       withCoordinates,
       fromLocal,
@@ -78,6 +93,24 @@ export async function parseSpreadsheetFile(file: File): Promise<ImportResult> {
       issues,
     },
   }
+}
+
+export async function downloadSpreadsheetTemplate(): Promise<void> {
+  const XLSX = await import('xlsx')
+  const sheet = XLSX.utils.aoa_to_sheet([
+    requiredColumns.map((column) => columnLabels[column]),
+    ['CC00019', '12/04/2025', 'PENAEIDAE', 'Penaeus sp.', 'Maceió, AL', `9°34'22"S / 35°46'40"W`, 'Linha de exemplo: substitua pelos seus registros'],
+  ])
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, sheet, 'Registros')
+  XLSX.writeFile(workbook, 'modelo-mapa-cc-mhn.xlsx')
+}
+
+function hasRequiredColumns(XLSX: typeof import('xlsx'), sheet: WorkSheet): boolean {
+  const [header = []] = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 })
+  const headers = new Set(header.map(normalizeHeader))
+
+  return requiredColumns.every((column) => headers.has(column))
 }
 
 function buildColumnMap(firstRow: RawRow): Record<RequiredColumn, string> {

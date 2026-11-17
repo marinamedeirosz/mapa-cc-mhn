@@ -8,13 +8,14 @@ O projeto foi pensado para apoiar pesquisadores, curadores e demais pessoas inte
 
 ## Como o projeto funciona
 
-A aplicação roda no navegador e faz a leitura da planilha localmente. Ao importar um arquivo `.xlsx`, `.xls` ou `.csv`, o sistema lê a primeira aba, identifica as colunas esperadas e transforma cada linha em um registro da coleção.
+A aplicação roda no navegador e faz a leitura da planilha localmente. Ao importar um arquivo `.xlsx`, `.xls` ou `.csv`, o sistema lê a primeira aba que tem as colunas esperadas (outra aba pode ser escolhida depois), identifica as colunas esperadas e transforma cada linha em um registro da coleção.
 
 Depois da importação, cada registro passa por uma etapa de interpretação espacial:
 
 1. Se a coluna `Coordenadas` possui um valor válido, o sistema usa essa posição.
 2. Se a coordenada está ausente ou inválida, o sistema tenta reconhecer a coluna `Local` em uma base offline de localidades conhecidas.
-3. Se não for possível encontrar uma posição, o registro continua disponível na tabela e nas estatísticas, mas fica fora do mapa.
+3. Se o local não estiver na base, a curadoria pode ligá-lo a um município pela própria interface, no item **Sem posição** da faixa de indicadores. Essa base fica salva no navegador e pode ser exportada e importada em JSON.
+4. Se não for possível encontrar uma posição, o registro continua disponível na tabela e nas estatísticas, mas fica fora do mapa.
 
 Coordenadas em graus, minutos e segundos são convertidas automaticamente para o formato decimal, usado por mapas digitais. O sistema também reconhece pares decimais quando eles já vêm nesse formato.
 
@@ -29,19 +30,25 @@ Registros associados ao **Complexo Estuarino-Lagunar Mundaú-Manguaba (CELMM)** 
 ## Funcionalidades
 
 - Importação local de planilhas `.xlsx`, `.xls` e `.csv`.
-- Leitura da primeira aba da planilha.
+- Escolha da aba da planilha, começando pela primeira com as colunas esperadas.
+- Planilha modelo para download e planilha importada mantida no navegador ao recarregar.
 - Normalização de cabeçalhos e correção de textos importados.
 - Conversão automática de coordenadas para latitude e longitude.
 - Posicionamento por coordenadas ou por localidade conhecida.
-- Avisos para registros com data, coordenada ou local não reconhecidos.
-- Filtros por data, família, espécie, local e observação.
-- Estatísticas dos registros filtrados.
-- Tabela com ordenação, paginação, busca rápida e exportação CSV.
-- Mapa de pontos para visualizar concentração de ocorrências.
+- Base de locais da curadoria: locais sem posição podem ser ligados a um município pela própria interface, com exportação e importação em JSON para compartilhar com a equipe.
+- Avisos para registros com data, coordenada ou local não reconhecidos; datas em formato desconhecido ou com ano impossível viram aviso, sem serem adivinhadas.
+- Divisória arrastável entre o mapa e a listagem e tela cheia em cada região da tela.
+- Faixa de indicadores no topo da tela: registros, lotes no mapa, lotes sem posição, avisos, famílias, espécies e locais.
+- Filtros por data, família, espécie, local e observação, numa gaveta lateral, e filtro pelo município clicado no mapa.
+- Estatísticas dos registros filtrados, com distribuições clicáveis e linha do tempo de lotes por ano.
+- Tabela com ordenação, rolagem com cabeçalho fixo (as linhas são desenhadas em blocos de 200 conforme a rolagem), busca rápida, botão para ver o lote no mapa e exportação CSV ou Darwin Core.
+- Mapa de pontos para visualizar concentração de ocorrências e aba com os lotes, agrupados quando caem no mesmo ponto.
 - Mapa municipal de Alagoas agrupado por lotes, famílias ou espécies.
 - Cor de destaque do mapa configurável por paletas ou seletor personalizado.
 - Detalhamento dos agrupadores e lotes ao clicar em municípios ou métricas.
-- Exportação do mapa municipal em PNG com o agrupador e a cor selecionados.
+- Escala de cores no mapa municipal, lista de municípios sem registros e lotes marinhos separados.
+- Exportação do mapa municipal em PNG (3200 × 1800) ou SVG com o agrupador e a cor selecionados.
+- Conferência opcional dos nomes de espécies no WoRMS (World Register of Marine Species), com progresso e memória dos nomes já conferidos.
 
 ## Estrutura esperada da planilha
 
@@ -63,25 +70,58 @@ Exemplo:
 | --- | --- | --- | --- | --- | --- | --- |
 | CC00019 | 12/04/2025 | PENAEIDAE | Penaeus sp. | Maceió, AL | 9°34'22"S / 35°46'40"W | Comprado na loja Universo Submerso |
 
+A coluna `Data` aceita células de data do Excel, `dd/mm/aaaa`, `dd/mm/aa` (anos de dois dígitos que cairiam no futuro viram 19xx) e `aaaa-mm-dd`. Datas em outros formatos (por exemplo, `Maio de 94`) ou com ano fora do intervalo de 1800 até o ano atual não são adivinhadas: o lote fica sem data e aparece nos avisos da importação, para a curadoria corrigir na planilha.
+
+## Organização da tela
+
+- **Cabeçalho:** nome da planilha importada, escolha da aba, importar outra planilha, baixar o modelo e descartar a planilha salva no navegador.
+- **Faixa de indicadores:** o primeiro item, **Filtros**, abre a gaveta de filtros e mostra quantos lotes passam por eles. **Sem posição** abre a base de locais da curadoria e **avisos** abre a lista de avisos da importação.
+- **À esquerda:** o mapa e, abaixo dele, a linha do tempo de lotes por ano.
+- **À direita:** as abas **Lotes** (tabela), **Distribuições** (família, espécie e local) e **WoRMS** (conferência dos nomes).
+
+Em telas largas, tudo cabe na altura da tela e só o conteúdo das abas rola. Em telas menores, as seções ficam uma embaixo da outra.
+
+Entre o mapa e a listagem há uma divisória que pode ser arrastada, como a de colunas do Excel, para dar mais espaço a um dos lados (entre 30% e 75% da largura para o mapa). Ela também responde às setas do teclado, volta ao padrão com dois cliques e a divisão fica salva no navegador.
+
+O mapa, a linha do tempo e o painel da direita têm um botão de **tela cheia**, que amplia a região para quase toda a tela, como um modal. Ela fecha pelo mesmo botão, pela tecla Esc ou clicando fora, e mantém zoom, ordenação, rolagem e aba escolhida.
+
 ## Visualizações
 
-### Mapa de pontos
+O mapa tem três modos, escolhidos pelas abas no topo dele.
+
+### Pontos
 
 Mostra a concentração de ocorrências que possuem posição geográfica, seja por coordenadas da planilha ou pela identificação do local.
 
-### Mapa por municípios
+### Lotes
 
-Mostra a malha municipal de Alagoas. O controle **Agrupar por** permite contar lotes, famílias ou espécies em cada município. Quanto maior a contagem selecionada, mais intensa é a cor. Família e espécie são deduplicadas sem considerar diferenças de caixa, acentos, espaços ou pontuação; células vazias não formam um grupo e seus lotes são sinalizados separadamente.
+Mostra os lotes como marcadores: verde quando a posição vem das coordenadas da planilha e laranja quando é aproximada pelo local. Lotes que caem no mesmo ponto (por exemplo, todos os posicionados pelo nome de um município) viram um marcador só, com a quantidade dentro. Ao clicar, aparecem código, família, espécie, local, data e origem da posição; num marcador agrupado, a lista dos lotes daquele ponto (até 50, com a contagem dos demais).
 
-O botão **Cor** oferece paletas roxa, azul, verde e laranja, além de uma cor personalizada. A aplicação gera automaticamente tons mais claros para as menores intensidades, salva a preferência no navegador e permite restaurar o roxo padrão.
+### Municípios
 
-Nesse modo, é possível mostrar ou ocultar nomes, clicar em um município para ver os agrupadores e seus lotes, abrir os detalhamentos das métricas e exportar o mapa em PNG. A exportação usa o agrupador e a cor ativos, gera apenas o mapa municipal em formato horizontal e inclui o agrupador no nome do arquivo. As etiquetas seguem o formato `Município (número)` e usam linhas tracejadas quando é necessário deslocar nomes para fora da malha.
+Mostra a malha municipal de Alagoas. O seletor de agrupamento permite contar lotes, famílias ou espécies em cada município. Quanto maior a contagem selecionada, mais intensa é a cor. Família e espécie são deduplicadas sem considerar diferenças de caixa, acentos, espaços ou pontuação; células vazias não formam um grupo e seus lotes são sinalizados separadamente.
+
+O botão de cor (ícone de paleta) oferece paletas roxa, azul, verde e laranja, além de uma cor personalizada. A aplicação gera automaticamente tons mais claros para as menores intensidades, salva a preferência no navegador e permite restaurar o roxo padrão.
+
+Acima do mapa, uma faixa de métricas mostra municípios com registros, municípios sem registros, lotes no mapa, lotes sem município, lotes marinhos, diretos, CELMM e atribuições; cada uma abre o seu detalhamento. No canto do mapa, a legenda mostra a escala de cores com as faixas de contagem.
+
+Os controles ficam sempre numa linha só, à direita das abas: seletor de agrupamento, cor, botão de etiqueta para mostrar ou ocultar os nomes e menu **Exportar**. Quando o mapa fica estreito, o Exportar e as abas passam a mostrar só o ícone; se ainda assim não couber, os controles vão para o menu **⋮**.
+
+Nesse modo, é possível mostrar ou ocultar nomes, passar o mouse sobre um município para destacá-lo, clicar nele para ver os agrupadores e seus lotes (e filtrar todo o app por ele) e exportar o mapa pelo menu **Exportar**: PNG em alta resolução, para slides e documentos, ou SVG vetorial, para artigos, pôsteres e edição. A exportação usa o agrupador e a cor ativos, gera apenas o mapa municipal em formato horizontal e inclui o agrupador no nome do arquivo. As etiquetas seguem o formato `Município (número)` e usam linhas tracejadas quando é necessário deslocar nomes para fora da malha.
+
+Lotes com coordenadas no mar, a mais de 25 km da costa, aparecem como pontos e são contados à parte como **marinhos**, sem entrar na contagem dos municípios.
 
 ## Filtros e resultados
 
-Os filtros são recalculados a partir da planilha importada e atualizam automaticamente mapa, estatísticas e tabela. É possível filtrar por intervalo de datas, família, espécie, local e texto em observações.
+Os filtros ficam numa gaveta lateral, aberta pelo botão **Filtros** na faixa de indicadores. Eles são recalculados a partir da planilha importada e atualizam automaticamente mapa, estatísticas e tabela. É possível filtrar por intervalo de datas, família, espécie, local e texto em observações; os filtros ativos aparecem no topo da gaveta e podem ser removidos um a um. O município é filtrado pelo clique no mapa municipal, e um ano pelo clique na linha do tempo.
 
-A tabela de resultados mantém todos os registros importados, inclusive aqueles que não puderam ser posicionados no mapa. Ela permite busca rápida, ordenação, paginação e exportação dos dados filtrados em CSV.
+A tabela de resultados mantém todos os registros importados, inclusive aqueles que não puderam ser posicionados no mapa. Ela lista todos os lotes filtrados numa área com rolagem e cabeçalho fixo, e permite busca rápida, ordenação e exportação dos dados filtrados em CSV ou no padrão Darwin Core, usado por portais como GBIF e SiBBr.
+
+## Conferência de nomes no WoRMS
+
+A aba **WoRMS** compara as espécies da planilha com o [World Register of Marine Species](https://www.marinespecies.org), e aponta nomes com grafia diferente, nomes não aceitos (com o nome aceito sugerido) e nomes não encontrados. Nomes com `sp.` ou `spp.` são conferidos pelo gênero.
+
+A consulta só acontece quando a pessoa clica em **Conferir**, e só os nomes das espécies saem do computador. Os nomes vão em blocos de 50, com até 3 blocos ao mesmo tempo, e o botão mostra o progresso. Cada bloco leva alguns segundos no WoRMS: uma coleção com cerca de 240 espécies leva em torno de 12 segundos. Os nomes já conferidos ficam guardados enquanto a página está aberta, então conferir de novo é instantâneo. Se um bloco falhar, ele é tentado mais uma vez antes de mostrar o erro.
 
 ## Como rodar o projeto
 

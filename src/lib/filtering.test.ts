@@ -35,6 +35,15 @@ describe('filtering', () => {
     expect(filtered[0].code).toBe('CC00019')
   })
 
+  it('keeps only the records selected on the map', () => {
+    const filtered = applyFilters(records, {
+      ...initialFilters,
+      mapSelection: { label: 'Maceió', recordIds: ['CC00020'] },
+    })
+
+    expect(filtered.map((record) => record.code)).toEqual(['CC00020'])
+  })
+
   it('quick search scans visible row fields', () => {
     expect(applyQuickSearch(records, 'callinectes')).toHaveLength(1)
     expect(applyQuickSearch(records, 'maceio')).toHaveLength(1)

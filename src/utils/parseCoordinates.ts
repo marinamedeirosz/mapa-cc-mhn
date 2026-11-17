@@ -2,7 +2,8 @@ export type ParseCoordinatesResult =
   | { ok: true; latitude: number; longitude: number }
   | { ok: false; reason: string }
 
-const decimalPairPattern = /(-?\d{1,3}(?:[.,]\d+)?)\s*[,;/]\s*(-?\d{1,3}(?:[.,]\d+)?)/
+// Os únicos dígitos do texto devem ser os do par; senão é GMS (ex.: 22,5" viraria o par 22, 5).
+const decimalPairPattern = /^[^\d-]*(-?\d{1,3}(?:[.,]\d+)?)\s*[,;/]\s*(-?\d{1,3}(?:[.,]\d+)?)\D*$/
 const dmsPattern =
   /(\d{1,3})(?:\s*[°º]\s*|\s+)(\d{1,2})?(?:\s*['’′]\s*|\s+)?(\d{1,2}(?:[.,]\d+)?)?(?:\s*["”″]\s*)?([NSEW])/gi
 

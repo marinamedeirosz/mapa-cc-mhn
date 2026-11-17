@@ -1,9 +1,10 @@
 import L from 'leaflet'
-import { Download, Layers, Map as MapIcon, MapPinned, Palette, RotateCcw, Tags } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
+import { ChevronDown, Download, EllipsisVertical, Filter, Layers, Map as MapIcon, MapPin, Palette, RotateCcw, Tags } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { CircleMarker, MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { FullscreenButton } from '@/components/FullscreenRegion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -20,6 +21,9 @@ import {
 import {
   aggregateByMunicipality,
   defaultMunicipalityAccentColor,
+  municipalityColorScale,
+  municipalityEmptyColor,
+  getMunicipalityFeatureId,
   isValidHexColor,
 } from '@/lib/municipalityAggregation'
 import type {
@@ -31,7 +35,8 @@ import type {
   MunicipalityGrouping,
   MunicipalityRecordRef,
 } from '@/lib/municipalityAggregation'
-import type { MapMode, OccurrenceRecord, PositionSource } from '@/types'
+import { downloadBlob } from '@/lib/utils'
+import type { MapMode, MapSelection, OccurrenceRecord, RecordFocus } from '@/types'
 import { HeatLayer } from './HeatLayer'
 import { MunicipalityChoroplethLayer } from './MunicipalityChoroplethLayer'
 
@@ -48,22 +53,52 @@ interface OccurrenceMapProps {
   records: OccurrenceRecord[]
   mode: MapMode
   onModeChange: (mode: MapMode) => void
+  focus: RecordFocus | null
+  onSelectMunicipality: (selection: MapSelection) => void
+  municipalityGeojson: MunicipalityFeatureCollection | null
+  geojsonError: string
 }
 
-export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProps) {
-  const [municipalityGeojson, setMunicipalityGeojson] =
-    useState<MunicipalityFeatureCollection | null>(null)
+export function OccurrenceMap({
+  records,
+  mode,
+  onModeChange,
+  focus,
+  onSelectMunicipality,
+  municipalityGeojson,
+  geojsonError,
+}: OccurrenceMapProps) {
+  const cardRef = useRef<HTMLDivElement>(null)
   const [selectedMunicipalityId, setSelectedMunicipalityId] = useState<string | null>(null)
   const [selectedMetric, setSelectedMetric] = useState<MetricDetail | null>(null)
   const [showMunicipalityLabels, setShowMunicipalityLabels] = useState(true)
   const [isExportingMunicipalityMap, setIsExportingMunicipalityMap] = useState(false)
+  const [exportError, setExportError] = useState('')
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false)
+  const [isOptionsMenuOpen, setIsOptionsMenuOpen] = useState(false)
+  const mapError = geojsonError || exportError
   const [grouping, setGrouping] = useState<MunicipalityGrouping>('lot')
   const [accentColor, setAccentColor] = useState(loadStoredAccentColor)
-  const positionedRecords = records.filter(
-    (record) => record.latitude !== null && record.longitude !== null,
+  const positionedRecords = useMemo(
+    () => records.filter((record) => record.latitude !== null && record.longitude !== null),
+    [records],
   )
-  const heatPoints = positionedRecords.map(
-    (record) => [record.latitude!, record.longitude!, 1] as [number, number, number],
+  // Memorizado: um array novo a cada render faria a camada de calor ser recriada (abrir um diálogo, trocar a cor...).
+  // Vários lotes no mesmo ponto (ex.: o centro de um município) viram um marcador só, com a contagem.
+  // Na coleção real, 5.750 lotes caíam em apenas 31 pontos, empilhados e impossíveis de clicar.
+  const markerGroups = useMemo(() => {
+    const groups = new Map<string, OccurrenceRecord[]>()
+    for (const record of positionedRecords) {
+      const key = `${record.latitude},${record.longitude}`
+      const group = groups.get(key)
+      if (group) group.push(record)
+      else groups.set(key, [record])
+    }
+    return Array.from(groups.values(), (records) => ({ records, icon: markerIcon(records) }))
+  }, [positionedRecords])
+  const heatPoints = useMemo(
+    () => positionedRecords.map((record) => [record.latitude!, record.longitude!, 1] as [number, number, number]),
+    [positionedRecords],
   )
   const municipalityAggregation = useMemo(
     () =>
@@ -77,6 +112,16 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
       ? municipalityAggregation.counts.get(selectedMunicipalityId) ?? null
       : null
   const canExportMunicipalityMap = Boolean(municipalityGeojson && municipalityAggregation)
+  const emptyMunicipalities = useMemo(
+    () =>
+      municipalityGeojson && municipalityAggregation
+        ? municipalityGeojson.features
+            .filter((feature) => !municipalityAggregation.counts.has(getMunicipalityFeatureId(feature)))
+            .map((feature) => feature.properties.name)
+            .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+        : [],
+    [municipalityAggregation, municipalityGeojson],
+  )
 
   function handleGroupingChange(value: MunicipalityGrouping) {
     setGrouping(value)
@@ -84,10 +129,11 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
     setSelectedMetric(null)
   }
 
-  async function handleExportMunicipalityMap() {
+  async function handleExportMunicipalityMap(format: 'png' | 'svg') {
     if (!municipalityGeojson || !municipalityAggregation || isExportingMunicipalityMap) return
 
     setIsExportingMunicipalityMap(true)
+    setExportError('')
     try {
       const svg = buildMunicipalityReportSvg({
         geojson: municipalityGeojson,
@@ -95,11 +141,22 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
         showLabels: showMunicipalityLabels,
         accentColor,
       })
-      await downloadMunicipalityMapPng(svg, getMunicipalityMapFileName(grouping))
+      const fileName = getMunicipalityMapFileName(grouping, new Date(), format)
+      if (format === 'svg') {
+        downloadBlob(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), fileName)
+      } else {
+        await downloadMunicipalityMapPng(svg, fileName)
+      }
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'Não foi possível exportar o mapa.')
     } finally {
       setIsExportingMunicipalityMap(false)
     }
   }
+
+  useEffect(() => {
+    if (focus) cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [focus])
 
   useEffect(() => {
     try {
@@ -109,81 +166,118 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
     }
   }, [accentColor])
 
-  useEffect(() => {
-    let cancelled = false
-    fetch('/data/alagoas-municipios.geojson')
-      .then((response) => {
-        if (!response.ok) throw new Error('Não foi possível carregar a malha de Alagoas.')
-        return response.json() as Promise<MunicipalityFeatureCollection>
-      })
-      .then((data) => {
-        if (!cancelled) setMunicipalityGeojson(data)
-      })
-      .catch(() => {
-        if (!cancelled) setMunicipalityGeojson(null)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const exportOptions = (
+    <>
+      <ExportOption
+        title='Imagem PNG'
+        description='Para slides, documentos e mensagens. Alta resolução (3200 × 1800).'
+        onClick={() => {
+          setIsExportMenuOpen(false)
+          setIsOptionsMenuOpen(false)
+          void handleExportMunicipalityMap('png')
+        }}
+      />
+      <ExportOption
+        title='Vetorial SVG'
+        description='Para artigos, pôsteres e edição no Illustrator ou Inkscape. Não perde qualidade ao ampliar.'
+        onClick={() => {
+          setIsExportMenuOpen(false)
+          setIsOptionsMenuOpen(false)
+          void handleExportMunicipalityMap('svg')
+        }}
+      />
+    </>
+  )
 
   return (
-    <Card className='min-h-[460px] overflow-hidden'>
-      <CardHeader className='flex flex-row flex-wrap items-center justify-between gap-3 pb-3'>
-        <CardTitle className='flex items-center gap-2 text-base'>
-          <MapPinned className='size-4' />
-          Mapa
-        </CardTitle>
-        {mode === 'municipalities' ? (
-          <div className='flex flex-wrap items-center justify-end gap-2'>
-            <div className='flex h-9 items-center gap-2'>
-              <Label htmlFor='municipality-grouping' className='whitespace-nowrap text-sm'>
-                Agrupar por
-              </Label>
-              <Select
-                id='municipality-grouping'
-                className='w-32'
-                value={grouping}
-                onChange={(event) => handleGroupingChange(event.target.value as MunicipalityGrouping)}
-              >
-                <option value='lot'>Lote</option>
-                <option value='family'>Família</option>
-                <option value='species'>Espécie</option>
-              </Select>
-            </div>
-            <AccentColorPicker value={accentColor} onChange={setAccentColor} />
-            <Button
-              type='button'
-              variant={showMunicipalityLabels ? 'secondary' : 'outline'}
-              className='h-9 px-3'
-              onClick={() => setShowMunicipalityLabels((value) => !value)}
-            >
-              <Tags /> Nomes
-            </Button>
-            <Button
-              type='button'
-              className='h-9 px-3'
-              disabled={!canExportMunicipalityMap || isExportingMunicipalityMap}
-              onClick={handleExportMunicipalityMap}
-            >
-              <Download />
-              {isExportingMunicipalityMap ? 'Exportando...' : 'Exportar mapa'}
-            </Button>
-          </div>
-        ) : null}
+    <Card ref={cardRef} className='fullscreen-fill flex min-h-[460px] scroll-mt-4 flex-col overflow-hidden xl:min-h-[360px] xl:flex-1'>
+      {/*
+        Sempre uma linha só. Conforme a largura do próprio cabeçalho (container query), primeiro o Exportar
+        fica só com ícone, depois as abas, e só no fim os controles vão para o menu ⋮.
+        Larguras medidas: completo 778 px, Exportar só ícone 708 px, abas só ícone 498 px.
+      */}
+      <CardHeader className='@container flex flex-row flex-nowrap items-center gap-2 px-4 py-3'>
+        <CardTitle className='sr-only'>Mapa</CardTitle>
         <Tabs value={mode} onValueChange={(value) => onModeChange(value as MapMode)}>
           <TabsList>
-            <TabsTrigger value='heatmap'><Layers /> Pontos</TabsTrigger>
-            <TabsTrigger value='municipalities'><MapIcon /> Municípios</TabsTrigger>
+            <TabsTrigger value='heatmap' className='px-2.5' title='Pontos'><Layers /> <span className='@max-[716px]:sr-only'>Pontos</span></TabsTrigger>
+            <TabsTrigger value='municipalities' className='px-2.5' title='Municípios'><MapIcon /> <span className='@max-[716px]:sr-only'>Municípios</span></TabsTrigger>
+            <TabsTrigger value='markers' className='px-2.5' title='Lotes'><MapPin /> <span className='@max-[716px]:sr-only'>Lotes</span></TabsTrigger>
           </TabsList>
         </Tabs>
+        {mode === 'municipalities' ? (
+          <>
+            <div className='flex flex-nowrap items-center gap-2 @max-[506px]:hidden'>
+              <GroupingSelect id='municipality-grouping' value={grouping} onChange={handleGroupingChange} />
+              <AccentColorPicker value={accentColor} onChange={setAccentColor} />
+              <NamesToggle value={showMunicipalityLabels} onChange={setShowMunicipalityLabels} />
+              <Popover open={isExportMenuOpen} onOpenChange={setIsExportMenuOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type='button'
+                    className='h-9 px-3'
+                    disabled={!canExportMunicipalityMap || isExportingMunicipalityMap}
+                    aria-label='Exportar mapa'
+                    title='Exportar mapa'
+                  >
+                    <Download />
+                    <span className='@max-[786px]:sr-only'>{isExportingMunicipalityMap ? 'Exportando...' : 'Exportar'}</span>
+                    <ChevronDown />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align='end' className='w-72 p-1'>
+                  {exportOptions}
+                </PopoverContent>
+              </Popover>
+            </div>
+            <Popover open={isOptionsMenuOpen} onOpenChange={setIsOptionsMenuOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='icon'
+                  className='hidden size-9 @max-[506px]:inline-flex'
+                  aria-label='Opções do mapa municipal'
+                  title='Opções do mapa municipal'
+                >
+                  <EllipsisVertical />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align='end' className='grid w-72 gap-3 p-3'>
+                <div className='grid gap-1.5'>
+                  <GroupingSelect id='municipality-grouping-menu' value={grouping} onChange={handleGroupingChange} showLabel />
+                </div>
+                <div className='flex items-center justify-between gap-2'>
+                  <span className='text-sm font-medium'>Cor do mapa</span>
+                  <AccentColorPicker value={accentColor} onChange={setAccentColor} />
+                </div>
+                <div className='flex items-center justify-between gap-2'>
+                  <span className='text-sm font-medium'>Nomes dos municípios</span>
+                  <NamesToggle value={showMunicipalityLabels} onChange={setShowMunicipalityLabels} />
+                </div>
+                <div className='grid gap-1 border-t pt-2'>
+                  <span className='px-1 text-sm font-medium'>Exportar mapa</span>
+                  {exportOptions}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </>
+        ) : null}
+        <FullscreenButton className='ml-auto' />
       </CardHeader>
-      <CardContent className='relative h-[520px] p-0'>
+      {mode === 'municipalities' && (municipalityAggregation || !mapError) ? (
+        <MunicipalityLegend
+          aggregation={municipalityAggregation}
+          emptyMunicipalities={emptyMunicipalities}
+          onMetricClick={setSelectedMetric}
+        />
+      ) : null}
+      <CardContent className='fullscreen-fill relative h-[460px] p-0 xl:h-auto xl:flex-1'>
         <MapContainer center={alagoasCenter} zoom={8} scrollWheelZoom className='z-0'>
           {mode !== 'municipalities' ? (
             <TileLayer
               attribution='&copy; <a href=https://www.openstreetmap.org/copyright>OpenStreetMap</a>'
-              url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+              url='https://tile.openstreetmap.org/{z}/{x}/{y}.png'
             />
           ) : null}
           {mode === 'heatmap' ? <HeatLayer points={heatPoints} /> : null}
@@ -196,32 +290,54 @@ export function OccurrenceMap({ records, mode, onModeChange }: OccurrenceMapProp
               showLabels={showMunicipalityLabels}
             />
           ) : null}
-          {mode === 'markers'
-            ? positionedRecords.map((record) => (
-                <Marker
+          {mode === 'municipalities'
+            ? municipalityAggregation?.marineRecords.map((record) => (
+                <CircleMarker
                   key={record.id}
-                  position={[record.latitude!, record.longitude!]}
-                  icon={markerIcon(record.positionSource)}
+                  center={[record.latitude!, record.longitude!]}
+                  radius={5}
+                  pathOptions={{ color: '#ffffff', weight: 2, fillColor: accentColor, fillOpacity: 1 }}
                 >
-                  <Popup>
-                    <div className='grid min-w-56 gap-2 text-sm'>
-                      <strong>{record.code || 'Sem código'}</strong>
-                      <span>{record.species || 'Espécie não informada'}</span>
-                      <span>{record.local || 'Local não informado'}</span>
-                    </div>
-                  </Popup>
+                  <Tooltip>{record.code || 'Sem código'} · marinho</Tooltip>
+                </CircleMarker>
+              ))
+            : null}
+          {mode === 'markers'
+            ? markerGroups.map(({ records: group, icon }) => (
+                <Marker key={group[0].id} position={[group[0].latitude!, group[0].longitude!]} icon={icon}>
+                  <Popup>{group.length === 1 ? <LotPopup record={group[0]} /> : <LotGroupPopup records={group} />}</Popup>
                 </Marker>
               ))
             : null}
+          <FocusedRecord focus={focus} />
+          <SizeWatcher />
         </MapContainer>
-        {mode === 'municipalities' ? (
-          <MunicipalityLegend aggregation={municipalityAggregation} onMetricClick={setSelectedMetric} />
+        {mode === 'markers' ? (
+          <div className='pointer-events-none absolute bottom-3 left-3 z-[500] grid gap-1 rounded-md border bg-card/95 p-3 text-xs shadow-md backdrop-blur'>
+            <span className='flex items-center gap-2'><span className='occurrence-marker !size-3' /> Coordenadas da planilha</span>
+            <span className='flex items-center gap-2'><span className='occurrence-marker local-fallback !size-3' /> Aproximada pelo local</span>
+          </div>
+        ) : null}
+        {mode === 'municipalities' && mapError ? (
+          <div
+            role='alert'
+            className='absolute right-3 top-3 z-[500] max-w-sm rounded-md border border-destructive/40 bg-card/95 p-3 text-xs text-destructive shadow-md'
+          >
+            {mapError}
+          </div>
+        ) : null}
+        {mode === 'municipalities' && municipalityAggregation ? (
+          <ColorScaleLegend aggregation={municipalityAggregation} accentColor={accentColor} />
         ) : null}
         <MunicipalityDetailDialog
           municipality={selectedMunicipality}
           grouping={grouping}
           open={Boolean(selectedMunicipality)}
           onOpenChange={(open) => !open && setSelectedMunicipalityId(null)}
+          onFilter={(selection) => {
+            setSelectedMunicipalityId(null)
+            onSelectMunicipality(selection)
+          }}
         />
         <MetricDetailDialog
           detail={selectedMetric}
@@ -238,6 +354,50 @@ type MetricDetail =
   | { type: 'groups'; title: string; description: string; groups: MunicipalityGroup[] }
   | { type: 'assignments'; title: string; description: string; assignments: MunicipalityGroupAssignment[] }
   | { type: 'records'; title: string; description: string; records: OccurrenceRecord[] }
+  | { type: 'names'; title: string; description: string; names: string[] }
+
+function GroupingSelect({
+  id,
+  value,
+  onChange,
+  showLabel = false,
+}: {
+  id: string
+  value: MunicipalityGrouping
+  onChange: (value: MunicipalityGrouping) => void
+  showLabel?: boolean
+}) {
+  return (
+    <>
+      <Label htmlFor={id} className={showLabel ? undefined : 'sr-only'}>
+        Agrupar por
+      </Label>
+      <Select id={id} className='w-36' value={value} onChange={(event) => onChange(event.target.value as MunicipalityGrouping)}>
+        <option value='lot'>Agrupar: lotes</option>
+        <option value='family'>Agrupar: famílias</option>
+        <option value='species'>Agrupar: espécies</option>
+      </Select>
+    </>
+  )
+}
+
+function NamesToggle({ value, onChange }: { value: boolean; onChange: (value: boolean) => void }) {
+  const label = value ? 'Ocultar nomes dos municípios' : 'Mostrar nomes dos municípios'
+  return (
+    <Button
+      type='button'
+      variant={value ? 'secondary' : 'outline'}
+      size='icon'
+      className='size-9'
+      aria-label={label}
+      aria-pressed={value}
+      title={label}
+      onClick={() => onChange(!value)}
+    >
+      <Tags />
+    </Button>
+  )
+}
 
 function AccentColorPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
@@ -248,10 +408,10 @@ function AccentColorPicker({ value, onChange }: { value: string; onChange: (valu
           variant='outline'
           className='h-9 px-3'
           aria-label='Escolher cor do mapa'
+          title='Cor do mapa'
         >
           <Palette />
           <span className='size-3 rounded-full border' style={{ backgroundColor: value }} />
-          Cor
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -310,11 +470,13 @@ function MunicipalityDetailDialog({
   grouping,
   open,
   onOpenChange,
+  onFilter,
 }: {
   municipality: MunicipalityCount | null
   grouping: MunicipalityGrouping
   open: boolean
   onOpenChange: (open: boolean) => void
+  onFilter: (selection: MapSelection) => void
 }) {
   const missingRefs = municipality?.records.filter(({ record }) =>
     grouping === 'family' ? !record.family.trim() : grouping === 'species' ? !record.species.trim() : false,
@@ -322,7 +484,7 @@ function MunicipalityDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='sm:max-w-5xl'>
+      <DialogContent className='w-[min(1240px,calc(100vw-2rem))]'>
         <DialogHeader>
           <DialogTitle>{municipality?.name ?? 'Município'}</DialogTitle>
           <DialogDescription>
@@ -336,6 +498,22 @@ function MunicipalityDetailDialog({
           <Badge variant='outline'>{municipality?.direct ?? 0} diretos</Badge>
           <Badge variant='warning'>{municipality?.celmm ?? 0} CELMM</Badge>
           <Badge variant='outline'>{municipality?.lotTotal ?? 0} lotes</Badge>
+          {municipality ? (
+            <Button
+              type='button'
+              size='sm'
+              variant='outline'
+              className='ml-auto'
+              onClick={() =>
+                onFilter({
+                  label: municipality.name,
+                  recordIds: municipality.records.map(({ record }) => record.id),
+                })
+              }
+            >
+              <Filter /> Filtrar por este município
+            </Button>
+          ) : null}
           {grouping !== 'lot' && (municipality?.missingGroupingLots ?? 0) > 0 ? (
             <Badge variant='warning'>{municipality?.missingGroupingLots} lotes sem {groupLabel(grouping, 1)}</Badge>
           ) : null}
@@ -371,7 +549,7 @@ function MetricDetailDialog({
 }) {
   return (
     <Dialog open={Boolean(detail)} onOpenChange={onOpenChange}>
-      <DialogContent className='sm:max-w-5xl'>
+      <DialogContent className='w-[min(1240px,calc(100vw-2rem))]'>
         <DialogHeader>
           <DialogTitle>{detail?.title ?? 'Detalhamento'}</DialogTitle>
           <DialogDescription>{detail?.description ?? 'Itens que compõem a métrica.'}</DialogDescription>
@@ -384,6 +562,14 @@ function MetricDetailDialog({
           grouping === 'lot' ? <RecordsTable records={uniqueRecords(detail.groups)} /> : <GroupedDetails groups={detail.groups} grouping={grouping} />
         ) : detail?.type === 'records' ? (
           <RecordsTable records={detail.records} />
+        ) : detail?.type === 'names' ? (
+          detail.names.length > 0 ? (
+            <ul className='max-h-[62svh] columns-2 gap-6 overflow-auto rounded-md border p-4 text-sm sm:columns-3'>
+              {detail.names.map((name) => <li key={name}>{name}</li>)}
+            </ul>
+          ) : (
+            <p className='rounded-md border p-4 text-sm text-muted-foreground'>Todos os municípios têm registros.</p>
+          )
         ) : null}
       </DialogContent>
     </Dialog>
@@ -551,16 +737,16 @@ function RecordRowsTable({
 
 function MunicipalityLegend({
   aggregation,
+  emptyMunicipalities,
   onMetricClick,
 }: {
   aggregation: MunicipalityAggregation | null
+  emptyMunicipalities: string[]
   onMetricClick: (detail: MetricDetail) => void
 }) {
   if (!aggregation) {
     return (
-      <div className='pointer-events-none absolute bottom-3 left-3 z-[500] rounded-md border bg-card/95 p-3 text-xs text-muted-foreground shadow-md backdrop-blur'>
-        Carregando malha municipal...
-      </div>
+      <div className='border-y px-4 py-2 text-xs text-muted-foreground'>Carregando malha municipal...</div>
     )
   }
 
@@ -570,9 +756,8 @@ function MunicipalityLegend({
   const plural = capitalize(groupLabel(aggregation.grouping, 2))
 
   return (
-    <div className='absolute bottom-3 left-3 z-[500] grid max-w-[calc(100%-1.5rem)] gap-2 rounded-md border bg-card/95 p-3 text-xs shadow-md backdrop-blur'>
-      <div className='font-medium text-foreground'>{plural} por município</div>
-      <div className='grid grid-cols-2 gap-2 sm:grid-cols-3'>
+    <div className='flex items-center gap-1.5 overflow-x-auto border-y bg-muted/30 px-4 py-2 text-xs [&>*]:shrink-0 [&>.contents>*]:shrink-0'>
+      <div className='contents'>
         <MetricButton
           label='Municípios'
           value={aggregation.municipalitiesWithGroups}
@@ -581,6 +766,16 @@ function MunicipalityLegend({
             title: 'Municípios coloridos',
             description: `Municípios com pelo menos uma ${groupLabel(aggregation.grouping, 1)}.`,
             municipalities: municipalityRows,
+          })}
+        />
+        <MetricButton
+          label='Sem registros'
+          value={emptyMunicipalities.length}
+          onClick={() => onMetricClick({
+            type: 'names',
+            title: 'Municípios sem registros',
+            description: 'Municípios de Alagoas sem nenhum lote na seleção atual: lacunas de representatividade da coleção.',
+            names: emptyMunicipalities,
           })}
         />
         <MetricButton
@@ -603,6 +798,18 @@ function MunicipalityLegend({
             groups: aggregation.unresolvedGroupItems,
           })}
         />
+        {aggregation.marineRecords.length > 0 ? (
+          <MetricButton
+            label='Marinhos'
+            value={aggregation.marineRecords.length}
+            onClick={() => onMetricClick({
+              type: 'records',
+              title: 'Lotes marinhos',
+              description: 'Lotes com coordenadas no mar, a mais de 25 km da costa de Alagoas. Aparecem como pontos no mapa e não entram na contagem dos municípios.',
+              records: aggregation.marineRecords,
+            })}
+          />
+        ) : null}
         <MetricButton
           label='Diretos'
           value={aggregation.directGroups}
@@ -662,11 +869,11 @@ function MetricButton({
   return (
     <button
       type='button'
-      className='grid min-w-24 gap-0.5 rounded-md border bg-background px-2 py-1.5 text-left shadow-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50'
+      className='inline-flex items-baseline gap-1 rounded-full border bg-background px-2.5 py-1 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50'
       onClick={onClick}
     >
-      <span className='text-base font-semibold leading-none text-foreground'>{value}</span>
-      <span className='text-[11px] text-muted-foreground'>{label}</span>
+      <span className='font-semibold text-foreground'>{value}</span>
+      <span className='text-muted-foreground'>{label.toLowerCase()}</span>
     </button>
   )
 }
@@ -698,11 +905,150 @@ function uniqueRecords(groups: MunicipalityGroup[]): OccurrenceRecord[] {
   return Array.from(records.values())
 }
 
-function markerIcon(source: PositionSource) {
+// No desktop o mapa estica com a tela; o Leaflet só recalcula o tamanho se for avisado.
+// Escala de cores do mapa municipal: cada faixa de contagem e sua cor.
+function ColorScaleLegend({ aggregation, accentColor }: { aggregation: MunicipalityAggregation; accentColor: string }) {
+  const scale = municipalityColorScale(aggregation.max, accentColor)
+
+  return (
+    <div className='pointer-events-none absolute bottom-3 left-3 z-[500] grid gap-1.5 rounded-md border bg-card/95 px-3 py-2 text-xs shadow-md backdrop-blur'>
+      <span className='font-medium'>{capitalize(groupLabel(aggregation.grouping, 2))}</span>
+      <div className='flex flex-wrap items-center gap-x-3 gap-y-1'>
+        {scale.map(({ from, to, color }) => (
+          <span key={from} className='flex items-center gap-1.5'>
+            <span className='size-3 rounded-sm border border-black/10' style={{ backgroundColor: color }} />
+            {from === to ? from : `${from}–${to}`}
+          </span>
+        ))}
+        <span className='flex items-center gap-1.5 text-muted-foreground'>
+          <span className='size-3 rounded-sm border border-black/10' style={{ backgroundColor: municipalityEmptyColor }} />
+          sem registro
+        </span>
+        {aggregation.marineRecords.length > 0 ? (
+          <span className='flex items-center gap-1.5 text-muted-foreground'>
+            <span className='size-3 rounded-full border-2 border-white shadow-sm' style={{ backgroundColor: accentColor }} />
+            marinho
+          </span>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function ExportOption({ title, description, onClick }: { title: string; description: string; onClick: () => void }) {
+  return (
+    <button
+      type='button'
+      className='grid w-full gap-0.5 rounded-md px-3 py-2 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none'
+      onClick={onClick}
+    >
+      <span className='text-sm font-medium'>{title}</span>
+      <span className='text-xs text-muted-foreground'>{description}</span>
+    </button>
+  )
+}
+
+function SizeWatcher() {
+  const map = useMap()
+
+  // Espera o tamanho parar de mudar (ex.: arrastando a divisória) para recalcular o mapa uma vez só.
+  useEffect(() => {
+    let timer = 0
+    const observer = new ResizeObserver(() => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => map.invalidateSize(), 150)
+    })
+    observer.observe(map.getContainer())
+    return () => {
+      observer.disconnect()
+      window.clearTimeout(timer)
+    }
+  }, [map])
+
+  return null
+}
+
+function FocusedRecord({ focus }: { focus: RecordFocus | null }) {
+  const map = useMap()
+  const latitude = focus?.record.latitude
+  const longitude = focus?.record.longitude
+
+  useEffect(() => {
+    if (latitude != null && longitude != null) map.flyTo([latitude, longitude], Math.max(map.getZoom(), 12))
+  }, [focus, latitude, longitude, map])
+
+  if (!focus || latitude == null || longitude == null) return null
+
+  return (
+    <CircleMarker
+      center={[latitude, longitude]}
+      radius={14}
+      pathOptions={{ color: '#d1495b', weight: 3, fillOpacity: 0.15 }}
+      interactive={false}
+    >
+      <Tooltip permanent direction='top' offset={[0, -14]}>
+        {focus.record.code || 'Sem código'}
+        {focus.record.positionSource === 'local_fallback' ? ' (posição aproximada)' : ''}
+      </Tooltip>
+    </CircleMarker>
+  )
+}
+
+const coordinatesIcon = L.divIcon({ className: 'occurrence-marker', html: '', iconSize: [18, 18], iconAnchor: [9, 9] })
+const localFallbackIcon = L.divIcon({ className: 'occurrence-marker local-fallback', html: '', iconSize: [18, 18], iconAnchor: [9, 9] })
+const groupPopupLimit = 50
+
+function markerIcon(records: OccurrenceRecord[]) {
+  const approximate = records.every((record) => record.positionSource === 'local_fallback')
+  if (records.length === 1) return approximate ? localFallbackIcon : coordinatesIcon
+
+  const size = records.length < 100 ? 28 : records.length < 1000 ? 34 : 40
   return L.divIcon({
-    className: `occurrence-marker ${source === 'local_fallback' ? 'local-fallback' : ''}`,
-    html: '',
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
+    className: `occurrence-marker ${approximate ? 'local-fallback' : ''}`,
+    html: `<span>${records.length}</span>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   })
+}
+
+function LotPopup({ record }: { record: OccurrenceRecord }) {
+  return (
+    <div className='grid min-w-56 gap-1 text-sm'>
+      <strong>{record.code || 'Sem código'}</strong>
+      <span>{record.family || 'Família não informada'} · <em>{record.species || 'Espécie não informada'}</em></span>
+      <span>{record.local || 'Local não informado'}</span>
+      <span>{record.dateText || 'Sem data'}</span>
+      <span className='text-muted-foreground'>
+        {record.positionSource === 'local_fallback' ? `Posição aproximada: ${record.positionLabel}` : 'Coordenadas da planilha'}
+      </span>
+    </div>
+  )
+}
+
+function LotGroupPopup({ records }: { records: OccurrenceRecord[] }) {
+  const first = records[0]
+
+  return (
+    <div className='grid min-w-64 gap-2 text-sm'>
+      <div className='grid gap-0.5'>
+        <strong>{records.length} lotes neste ponto</strong>
+        <span className='text-muted-foreground'>
+          {first.positionSource === 'local_fallback' ? `Posição aproximada: ${first.positionLabel}` : 'Coordenadas da planilha'}
+        </span>
+      </div>
+      <ul className='grid max-h-56 gap-1 overflow-auto pr-1'>
+        {records.slice(0, groupPopupLimit).map((record) => (
+          <li key={record.id}>
+            <strong>{record.code || 'Sem código'}</strong> · <em>{record.species || record.family || 'Sem espécie'}</em>
+            {record.dateText ? ` · ${record.dateText}` : ''}
+          </li>
+        ))}
+      </ul>
+      {records.length > groupPopupLimit ? (
+        <span className='text-xs text-muted-foreground'>
+          E mais {records.length - groupPopupLimit} lotes. Use os filtros ou a tabela para ver todos.
+        </span>
+      ) : null}
+    </div>
+  )
 }
